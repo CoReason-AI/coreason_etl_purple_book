@@ -84,6 +84,11 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
         python-version: ["3.14", "3.14t"]
+        exclude:
+          - os: windows-latest
+            python-version: "3.14t"
+          - os: macos-latest
+            python-version: "3.14t"
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
       - name: Install uv
