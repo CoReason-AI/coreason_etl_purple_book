@@ -8,6 +8,9 @@ on:
       - develop
   pull_request:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
 
@@ -49,7 +52,9 @@ jobs:
 
       - name: Set PYTHON_GIL for Free-Threading
         if: matrix.python-version == '3.14t'
-        run: echo "PYTHON_GIL=0" >> $GITHUB_ENV
+        run: |
+          echo "PYTHON_GIL=0" >> $GITHUB_ENV
+          echo "ORJSON_BUILD_FREETHREADED=1" >> $GITHUB_ENV
         shell: bash
 
       - name: Install dependencies
@@ -89,7 +94,9 @@ jobs:
 
       - name: Set PYTHON_GIL for Free-Threading
         if: matrix.python-version == '3.14t'
-        run: echo "PYTHON_GIL=0" >> $GITHUB_ENV
+        run: |
+          echo "PYTHON_GIL=0" >> $GITHUB_ENV
+          echo "ORJSON_BUILD_FREETHREADED=1" >> $GITHUB_ENV
         shell: bash
 
       - name: Install dependencies
