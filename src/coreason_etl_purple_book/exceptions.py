@@ -8,16 +8,14 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
-import importlib
-from pathlib import Path
 
-import pytest
+class SourceSchemaError(Exception):
+    """
+    AGENT INSTRUCTION: Exception raised when the source data schema differs from what is expected.
+    """
 
 
-def test_logger_initialization(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.chdir(tmp_path)
-    import coreason_etl_purple_book.utils.logger as log_module
-
-    importlib.reload(log_module)
-    assert Path("logs").exists()
-    assert Path("logs").is_dir()
+class DataIntegrityError(Exception):
+    """
+    AGENT INSTRUCTION: Exception raised when there is an integrity issue with the data.
+    """
