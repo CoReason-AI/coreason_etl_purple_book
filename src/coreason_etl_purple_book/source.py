@@ -8,10 +8,16 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
+import csv
 import hashlib
 import os
 import tempfile
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Any
 
+import dlt
+from dlt.extract.source import DltSource
 from dlt.sources.helpers import requests
 
 from coreason_etl_purple_book.utils.logger import logger
@@ -56,3 +62,40 @@ class FdaPurpleBookSource:
             if os.path.exists(file_path):
                 os.remove(file_path)
             raise e
+
+
+@dlt.resource(name="bronze_FDA_PURPLE_BOOK", write_disposition="replace", max_table_nesting=0)  # type: ignore[untyped-decorator]
+def fda_purple_book_resource(url: str) -> Iterator[dict[str, Any]]:
+    """
+    Downloads the FDA Purple Book dataset and yields raw CSV rows in a single "raw_content" JSON key.
+    """
+    source = FdaPurpleBookSource()
+    file_path, md5_digest = source.download_and_hash_csv(url)
+
+    # Use timezone-aware UTC datetime
+    ingestion_ts = datetime.now(UTC).isoformat()
+
+    # Determine source_file name
+    source_file = url.split("/")[-1] if "/" in url else "purplebook-search-data.csv"
+
+    try:
+        with open(file_path, encoding="utf-8-sig") as csv_file:
+            reader = csv.DictReader(csv_file)
+            for row in reader:
+                yield {
+                    "source_file": source_file,
+                    "ingestion_ts": ingestion_ts,
+                    "source_hash": md5_digest,
+                    "raw_content": row,
+                }
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+@dlt.source  # type: ignore[untyped-decorator]
+def fda_purple_book_source(url: str = "https://purplebooksearch.fda.gov/downloads/data-download") -> DltSource:
+    """
+    Creates a dlt source for the FDA Purple Book dataset.
+    """
+    return [fda_purple_book_resource(url=url)]
