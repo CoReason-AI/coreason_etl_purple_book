@@ -8,6 +8,9 @@ on:
       - develop
   pull_request:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
 
@@ -49,7 +52,9 @@ jobs:
 
       - name: Set PYTHON_GIL for Free-Threading
         if: matrix.python-version == '3.14t'
-        run: echo "PYTHON_GIL=0" >> $GITHUB_ENV
+        run: |
+          echo "PYTHON_GIL=0" >> $GITHUB_ENV
+          echo "ORJSON_BUILD_FREETHREADED=1" >> $GITHUB_ENV
         shell: bash
 
       - name: Install dependencies
@@ -79,6 +84,11 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
         python-version: ["3.14", "3.14t"]
+        exclude:
+          - os: windows-latest
+            python-version: "3.14t"
+          - os: macos-latest
+            python-version: "3.14t"
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
       - name: Install uv
@@ -89,7 +99,9 @@ jobs:
 
       - name: Set PYTHON_GIL for Free-Threading
         if: matrix.python-version == '3.14t'
-        run: echo "PYTHON_GIL=0" >> $GITHUB_ENV
+        run: |
+          echo "PYTHON_GIL=0" >> $GITHUB_ENV
+          echo "ORJSON_BUILD_FREETHREADED=1" >> $GITHUB_ENV
         shell: bash
 
       - name: Install dependencies
