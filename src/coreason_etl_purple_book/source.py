@@ -17,7 +17,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 import dlt
-from dlt.extract.source import DltSource
 from dlt.sources.helpers import requests
 
 from coreason_etl_purple_book.utils.logger import logger
@@ -64,7 +63,7 @@ class FdaPurpleBookSource:
             raise e
 
 
-@dlt.resource(name="bronze_FDA_PURPLE_BOOK", write_disposition="replace", max_table_nesting=0)
+@dlt.resource(name="bronze_FDA_PURPLE_BOOK", write_disposition="replace", max_table_nesting=0)  # type: ignore[untyped-decorator, unused-ignore]
 def fda_purple_book_resource(url: str) -> Iterator[dict[str, Any]]:
     """
     Downloads the FDA Purple Book dataset and yields raw CSV rows in a single "raw_content" JSON key.
@@ -93,7 +92,7 @@ def fda_purple_book_resource(url: str) -> Iterator[dict[str, Any]]:
             os.remove(file_path)
 
 
-@dlt.source
+@dlt.source  # type: ignore[untyped-decorator, unused-ignore]
 def fda_purple_book_source(url: str = "https://purplebooksearch.fda.gov/downloads/data-download") -> Any:
     """
     Creates a dlt source for the FDA Purple Book dataset.
