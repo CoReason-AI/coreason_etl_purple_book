@@ -9,13 +9,12 @@
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
 import uuid
-from datetime import date
 from unittest.mock import patch
 
 import polars as pl
 
 from coreason_etl_purple_book.identity import NAMESPACE_FDA_PURPLE_BOOK
-from coreason_etl_purple_book.silver import process_silver_layer
+from coreason_etl_purple_book.silver import load_silver_layer, process_silver_layer
 
 
 def test_process_silver_layer_valid() -> None:
@@ -58,9 +57,11 @@ def test_process_silver_layer_valid() -> None:
         assert result_df["coreason_id"][1] == str(uuid.uuid5(NAMESPACE_FDA_PURPLE_BOOK, "000456"))
 
         # Verify date conversion
-        assert result_df["approval_date"][0] == date(2023, 1, 1)
-        assert result_df["approval_date"][1] == date(2024, 5, 15)
-        assert result_df["exclusivity_end_date"][0] == date(2030, 1, 1)
+        from datetime import datetime
+
+        assert result_df["approval_date"][0] == datetime(2023, 1, 1)
+        assert result_df["approval_date"][1] == datetime(2024, 5, 15)
+        assert result_df["exclusivity_end_date"][0] == datetime(2030, 1, 1)
         assert result_df["exclusivity_end_date"][1] is None
 
 
@@ -108,6 +109,46 @@ def test_process_silver_layer_empty() -> None:
 
         assert len(result_df) == 0
         assert isinstance(result_df, pl.DataFrame)
+
+
+def test_load_silver_layer_valid() -> None:
+    mock_df = pl.DataFrame(
+        {
+            "bla_number": ["000123"],
+            "trade_name": ["Brand A"],
+            "ingredient": ["Ingredient A"],
+            "applicant_short": ["Sponsor A"],
+            "license_type": ["351(a)"],
+            "marketing_status": ["Rx"],
+            "source_id": ["000123"],
+            "coreason_id": ["uuid1"],
+        }
+    )
+
+    with patch.object(pl.DataFrame, "write_database") as mock_write_db:
+        load_silver_layer(mock_df, "postgresql://user:pass@localhost:5432/db")
+
+        mock_write_db.assert_called_once_with(
+            table_name="silver_FDA_PURPLE_BOOK",
+            connection="postgresql://user:pass@localhost:5432/db",
+            if_table_exists="replace",
+            engine="adbc",
+        )
+
+
+def test_load_silver_layer_empty() -> None:
+    mock_df = pl.DataFrame(
+        {
+            "bla_number": [],
+            "trade_name": [],
+        }
+    )
+
+    with patch.object(pl.DataFrame, "write_database") as mock_write_db:
+        load_silver_layer(mock_df, "postgresql://user:pass@localhost:5432/db")
+
+        # It should skip writing to database if height is 0
+        mock_write_db.assert_not_called()
 
 
 def test_process_silver_layer_all_invalid() -> None:

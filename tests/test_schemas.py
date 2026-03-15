@@ -8,7 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
-from datetime import date
+from datetime import datetime
 
 import pytest
 from pydantic import ValidationError
@@ -30,8 +30,51 @@ def test_silver_manifest_valid() -> None:
     }
     manifest = SilverFdaPurpleBookManifest(**data)
     assert manifest.bla_number == "001234"
-    assert manifest.approval_date == date(2023, 1, 1)
-    assert manifest.exclusivity_end_date == date(2030, 1, 1)
+    assert manifest.approval_date == datetime(2023, 1, 1)
+    assert manifest.exclusivity_end_date == datetime(2030, 1, 1)
+
+
+def test_date_parsing_formats() -> None:
+    base_data = {
+        "bla_number": "1234",
+        "trade_name": "Test",
+        "ingredient": "Test",
+        "applicant_short": "Test",
+        "license_type": "351(a)",
+        "marketing_status": "Rx",
+    }
+
+    # MM/DD/YYYY
+    manifest1 = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "02/28/2024"})
+    assert manifest1.approval_date == datetime(2024, 2, 28)
+
+    # Month DD, YYYY
+    manifest2 = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "February 28, 2024"})
+    assert manifest2.approval_date == datetime(2024, 2, 28)
+
+    # Mon DD, YYYY
+    manifest3 = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "Feb 28, 2024"})
+    assert manifest3.approval_date == datetime(2024, 2, 28)
+
+    # Datetime object
+    manifest4 = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": datetime(2024, 2, 28)})
+    assert manifest4.approval_date == datetime(2024, 2, 28)
+
+    # Empty string tests
+    manifest5 = SilverFdaPurpleBookManifest(
+        **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": "   "}
+    )
+    assert manifest5.exclusivity_end_date is None
+
+    # Integer instead of string/datetime
+    with pytest.raises(ValidationError) as exc_info:
+        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": 20240228})
+    assert "Expected a string or datetime" in str(exc_info.value)
+
+    # Invalid string format
+    with pytest.raises(ValidationError) as exc_info:
+        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "28/02/2024"})
+    assert "Unrecognized date format" in str(exc_info.value)
 
 
 def test_silver_manifest_valid_no_exclusivity() -> None:
