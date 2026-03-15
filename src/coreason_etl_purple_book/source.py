@@ -64,7 +64,7 @@ class FdaPurpleBookSource:
             raise e
 
 
-@dlt.resource(name="bronze_FDA_PURPLE_BOOK", write_disposition="replace", max_table_nesting=0)  # type: ignore[untyped-decorator]
+@dlt.resource(name="bronze_FDA_PURPLE_BOOK", write_disposition="replace", max_table_nesting=0)
 def fda_purple_book_resource(url: str) -> Iterator[dict[str, Any]]:
     """
     Downloads the FDA Purple Book dataset and yields raw CSV rows in a single "raw_content" JSON key.
@@ -93,8 +93,8 @@ def fda_purple_book_resource(url: str) -> Iterator[dict[str, Any]]:
             os.remove(file_path)
 
 
-@dlt.source  # type: ignore[untyped-decorator]
-def fda_purple_book_source(url: str = "https://purplebooksearch.fda.gov/downloads/data-download") -> DltSource:
+@dlt.source
+def fda_purple_book_source(url: str = "https://purplebooksearch.fda.gov/downloads/data-download") -> Any:
     """
     Creates a dlt source for the FDA Purple Book dataset.
     """
