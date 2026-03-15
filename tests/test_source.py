@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from coreason_etl_purple_book.source import FdaPurpleBookSource
+from coreason_etl_purple_book.source import FdaPurpleBookSource, fda_purple_book_resource, fda_purple_book_source
 
 
 def test_download_and_hash_csv_success() -> None:
@@ -69,3 +69,67 @@ def test_download_and_hash_csv_failure() -> None:
         source.download_and_hash_csv(test_url)
 
     mock_remove.assert_called_once_with(mock_path)
+
+
+def test_fda_purple_book_resource() -> None:
+    test_url = "http://fake.url/data.csv"
+    test_data = b"col1,col2\nval1,val2\nval3,val4\n"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
+        resource = fda_purple_book_resource(url=test_url)
+        # Using list to exhaust the generator
+        rows = list(resource)
+
+    assert len(rows) == 2
+
+    row1 = rows[0]
+    assert row1["source_file"] == "data.csv"
+    assert "ingestion_ts" in row1
+    assert "source_hash" in row1
+    assert row1["raw_content"] == {"col1": "val1", "col2": "val2"}
+
+    row2 = rows[1]
+    assert row2["raw_content"] == {"col1": "val3", "col2": "val4"}
+
+
+def test_fda_purple_book_resource_no_slash_in_url() -> None:
+    test_url = "purplebooksearch.fda.gov"
+    test_data = b"col1,col2\nval1,val2\n"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
+        resource = fda_purple_book_resource(url=test_url)
+        rows = list(resource)
+
+    assert len(rows) == 1
+    assert rows[0]["source_file"] == "purplebook-search-data.csv"
+
+
+def test_fda_purple_book_source() -> None:
+    test_url = "http://fake.url/data.csv"
+    test_data = b"col1,col2\nval1,val2\n"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
+        source_generator = fda_purple_book_source(url=test_url)
+        resources = source_generator.resources
+        assert "bronze_FDA_PURPLE_BOOK" in resources
+
+        resource = resources["bronze_FDA_PURPLE_BOOK"]
+        rows = list(resource)
+
+    assert len(rows) == 1
+    assert rows[0]["raw_content"] == {"col1": "val1", "col2": "val2"}
