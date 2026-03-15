@@ -1,0 +1,87 @@
+# Copyright (c) 2026 CoReason Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
+
+from typing import Any
+
+import polars as pl
+from pydantic import ValidationError
+
+from coreason_etl_purple_book.exceptions import DataIntegrityError
+from coreason_etl_purple_book.identity import get_coreason_id_expr
+from coreason_etl_purple_book.schemas import SilverFdaPurpleBookManifest
+from coreason_etl_purple_book.utils.logger import logger
+
+
+def process_silver_layer(connection_uri: str) -> pl.DataFrame:
+    """
+    AGENT INSTRUCTION: Extracts the raw_content JSONB from the PostgreSQL Bronze table,
+    normalizes types, generates coreason_id, and filters/validates using Pydantic.
+    """
+    # The requirement is to pull data from bronze and unpack JSONB in SQL.
+    query = """
+    SELECT
+        raw_content->>'BLA Number' as source_bla_number,
+        raw_content->>'Proprietary Name' as proprietary_name,
+        raw_content->>'Proper Name' as proper_name,
+        raw_content->>'Applicant' as applicant,
+        raw_content->>'License Type' as license_type,
+        raw_content->>'Approval Date' as approval_date,
+        raw_content->>'Exclusivity Expiration' as exclusivity_expiration,
+        raw_content->>'Marketing Status' as marketing_status
+    FROM bronze_FDA_PURPLE_BOOK
+    """
+    logger.info("Executing SQL to read from bronze layer.")
+    df = pl.read_database(query=query, connection=connection_uri)
+
+    logger.info(f"Loaded {df.height} rows from database.")
+
+    valid_rows: list[dict[str, Any]] = []
+
+    # Map the unpacked SQL columns to target schema fields for Pydantic
+    for row in df.iter_rows(named=True):
+        raw_data = {
+            "bla_number": row.get("source_bla_number"),
+            "trade_name": row.get("proprietary_name"),
+            "ingredient": row.get("proper_name"),
+            "applicant_short": row.get("applicant"),
+            "license_type": row.get("license_type"),
+            "approval_date": row.get("approval_date"),
+            "exclusivity_end_date": row.get("exclusivity_expiration"),
+            "marketing_status": row.get("marketing_status"),
+        }
+
+        # Pydantic validation handles parsing, coercion, and sanitization/padding
+        try:
+            validated = SilverFdaPurpleBookManifest(**raw_data)
+            valid_rows.append(validated.model_dump())
+        except (ValidationError, DataIntegrityError) as e:
+            logger.warning(f"Data validation failed for row: {raw_data}. Error: {e}")
+
+    logger.info(f"Validated {len(valid_rows)} rows successfully.")
+
+    if not valid_rows:
+        schema = {
+            "bla_number": pl.String,
+            "trade_name": pl.String,
+            "ingredient": pl.String,
+            "applicant_short": pl.String,
+            "license_type": pl.String,
+            "approval_date": pl.Date,
+            "exclusivity_end_date": pl.Date,
+            "marketing_status": pl.String,
+            "source_id": pl.String,
+            "coreason_id": pl.String,
+        }
+        return pl.DataFrame(schema=schema)
+
+    valid_df = pl.DataFrame(valid_rows)
+
+    # Generate the dual ID using map_batches and PyArrow as required
+    return valid_df.with_columns(source_id=pl.col("bla_number"), coreason_id=get_coreason_id_expr("bla_number"))
