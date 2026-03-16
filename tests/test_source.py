@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from dlt.extract.exceptions import ResourceExtractionError
 
-from coreason_etl_purple_book.exceptions import SourceSchemaError
 from coreason_etl_purple_book.source import FdaPurpleBookSource, fda_purple_book_resource, fda_purple_book_source
 
 
@@ -186,10 +186,8 @@ def test_fda_purple_book_resource_missing_columns() -> None:
 
     with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
         resource = fda_purple_book_resource(url=test_url)
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(ResourceExtractionError, match="Missing required columns in CSV header"):
             list(resource)
-
-    assert "Missing required columns in CSV header" in str(excinfo.value)
 
 
 def test_fda_purple_book_resource_empty_file() -> None:
@@ -203,7 +201,5 @@ def test_fda_purple_book_resource_empty_file() -> None:
 
     with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
         resource = fda_purple_book_resource(url=test_url)
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(ResourceExtractionError, match="CSV file is empty or missing a header row"):
             list(resource)
-
-    assert "CSV file is empty or missing a header row" in str(excinfo.value)
