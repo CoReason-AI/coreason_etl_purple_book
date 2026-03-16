@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, StrictStr, field_validator
 
@@ -30,11 +30,46 @@ class SilverFdaPurpleBookManifest(BaseModel):
     ingredient: str = Field(..., description="Biological/Core name (Active substance) (Proper Name)")
     applicant_short: str = Field(..., description="Sponsor (Applicant)")
     license_type: str = Field(..., description="e.g., 351(a) Reference, 351(k) Biosimilar")
-    approval_date: datetime = Field(..., description="Parsed datetime format")
+    approval_date: date = Field(..., description="Parsed date format")
     exclusivity_end_date: datetime | None = Field(None, description="Optional exclusivity expiration date")
     marketing_status: str = Field(..., description="Rx, OTC, DISCN")
 
-    @field_validator("approval_date", "exclusivity_end_date", mode="before")
+    @field_validator("approval_date", mode="before")
+    @classmethod
+    def parse_fda_date_only(cls, v: str | date | datetime | None) -> date | None:
+        """
+        Parses FDA specific date formats into Python date objects.
+        Expected formats include ISO 8601 (YYYY-MM-DD), MM/DD/YYYY, and Month DD, YYYY.
+        """
+        if not v:
+            return None
+        if isinstance(v, datetime):
+            return v.date()
+        if isinstance(v, date):
+            return v
+        if not isinstance(v, str):
+            raise ValueError(f"Expected a string, date, or datetime, got {type(v).__name__}")
+
+        v = v.strip()
+        if not v:
+            return None
+
+        formats_to_try = [
+            "%Y-%m-%d",  # 2024-02-28
+            "%m/%d/%Y",  # 02/28/2024
+            "%B %d, %Y",  # February 28, 2024
+            "%b %d, %Y",  # Feb 28, 2024
+        ]
+
+        for fmt in formats_to_try:
+            try:
+                return datetime.strptime(v, fmt).date()
+            except ValueError:
+                continue
+
+        raise ValueError(f"Unrecognized date format: '{v}'")
+
+    @field_validator("exclusivity_end_date", mode="before")
     @classmethod
     def parse_fda_dates(cls, v: str | datetime | None) -> datetime | None:
         """
