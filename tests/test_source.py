@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from coreason_etl_purple_book.exceptions import SourceSchemaError
 from coreason_etl_purple_book.source import FdaPurpleBookSource, fda_purple_book_resource, fda_purple_book_source
 
 
@@ -73,7 +74,11 @@ def test_download_and_hash_csv_failure() -> None:
 
 def test_fda_purple_book_resource() -> None:
     test_url = "http://fake.url/data.csv"
-    test_data = b"col1,col2\nval1,val2\nval3,val4\n"
+    header = (
+        b"BLA Number,Proprietary Name,Proper Name,Applicant,"
+        b"License Type,Approval Date,Exclusivity Expiration,Marketing Status\n"
+    )
+    test_data = header + b"123456,Trade,Ing,App,351(k),2024-01-01,,Rx\n654321,Trade2,Ing2,App2,351(a),2023-01-01,,OTC\n"
 
     mock_response = MagicMock()
     mock_response.__enter__.return_value = mock_response
@@ -91,15 +96,37 @@ def test_fda_purple_book_resource() -> None:
     assert row1["source_file"] == "data.csv"
     assert "ingestion_ts" in row1
     assert "source_hash" in row1
-    assert row1["raw_content"] == {"col1": "val1", "col2": "val2"}
+    assert row1["raw_content"] == {
+        "BLA Number": "123456",
+        "Proprietary Name": "Trade",
+        "Proper Name": "Ing",
+        "Applicant": "App",
+        "License Type": "351(k)",
+        "Approval Date": "2024-01-01",
+        "Exclusivity Expiration": "",
+        "Marketing Status": "Rx",
+    }
 
     row2 = rows[1]
-    assert row2["raw_content"] == {"col1": "val3", "col2": "val4"}
+    assert row2["raw_content"] == {
+        "BLA Number": "654321",
+        "Proprietary Name": "Trade2",
+        "Proper Name": "Ing2",
+        "Applicant": "App2",
+        "License Type": "351(a)",
+        "Approval Date": "2023-01-01",
+        "Exclusivity Expiration": "",
+        "Marketing Status": "OTC",
+    }
 
 
 def test_fda_purple_book_resource_no_slash_in_url() -> None:
     test_url = "purplebooksearch.fda.gov"
-    test_data = b"col1,col2\nval1,val2\n"
+    header = (
+        b"BLA Number,Proprietary Name,Proper Name,Applicant,"
+        b"License Type,Approval Date,Exclusivity Expiration,Marketing Status\n"
+    )
+    test_data = header + b"123456,Trade,Ing,App,351(k),2024-01-01,,Rx\n"
 
     mock_response = MagicMock()
     mock_response.__enter__.return_value = mock_response
@@ -116,7 +143,11 @@ def test_fda_purple_book_resource_no_slash_in_url() -> None:
 
 def test_fda_purple_book_source() -> None:
     test_url = "http://fake.url/data.csv"
-    test_data = b"col1,col2\nval1,val2\n"
+    header = (
+        b"BLA Number,Proprietary Name,Proper Name,Applicant,"
+        b"License Type,Approval Date,Exclusivity Expiration,Marketing Status\n"
+    )
+    test_data = header + b"123456,Trade,Ing,App,351(k),2024-01-01,,Rx\n"
 
     mock_response = MagicMock()
     mock_response.__enter__.return_value = mock_response
@@ -132,4 +163,47 @@ def test_fda_purple_book_source() -> None:
         rows = list(resource)
 
     assert len(rows) == 1
-    assert rows[0]["raw_content"] == {"col1": "val1", "col2": "val2"}
+    assert rows[0]["raw_content"] == {
+        "BLA Number": "123456",
+        "Proprietary Name": "Trade",
+        "Proper Name": "Ing",
+        "Applicant": "App",
+        "License Type": "351(k)",
+        "Approval Date": "2024-01-01",
+        "Exclusivity Expiration": "",
+        "Marketing Status": "Rx",
+    }
+
+
+def test_fda_purple_book_resource_missing_columns() -> None:
+    test_url = "http://fake.url/data.csv"
+    test_data = b"BLA Number,Proprietary Name,Proper Name\n123,Trade,Ing\n"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
+        resource = fda_purple_book_resource(url=test_url)
+        with pytest.raises(Exception) as excinfo:
+            list(resource)
+
+    assert "Missing required columns in CSV header" in str(excinfo.value)
+
+
+def test_fda_purple_book_resource_empty_file() -> None:
+    test_url = "http://fake.url/data.csv"
+    test_data = b""
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
+        resource = fda_purple_book_resource(url=test_url)
+        with pytest.raises(Exception) as excinfo:
+            list(resource)
+
+    assert "CSV file is empty or missing a header row" in str(excinfo.value)
