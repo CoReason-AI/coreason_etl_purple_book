@@ -8,7 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 import polars as pl
 
@@ -23,14 +23,14 @@ def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.Data
     logger.info("Starting Gold layer processing.")
 
     # Schema definition for empty dataframes to prevent downstream crashes
-    expected_schema = {
+    expected_schema: dict[str, pl.DataType | type[pl.DataType]] = {
         "bla_number": pl.String,
         "trade_name": pl.String,
         "ingredient": pl.String,
         "applicant_short": pl.String,
         "license_type": pl.String,
-        "approval_date": pl.Date,
-        "exclusivity_end_date": pl.Date,
+        "approval_date": pl.Datetime("us"),
+        "exclusivity_end_date": pl.Datetime("us"),
         "marketing_status": pl.String,
         "source_id": pl.String,
         "coreason_id": pl.String,
@@ -55,7 +55,8 @@ def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.Data
 
     # 2. Derive columns
     logger.info("Adding derived columns (is_biosimilar, is_protected, vector_prep).")
-    current_date = datetime.now(UTC).date()
+    # Pydantic validates as naive datetime, use timezone-naive datetime here to avoid ComputeError
+    current_date = datetime.now()
 
     df = df.with_columns(
         is_biosimilar=pl.col("license_type") == "351(k)",
@@ -76,3 +77,21 @@ def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.Data
 
     logger.info(f"Gold layer processing complete. Returning {df.height} rows.")
     return df.select(target_columns)
+
+
+def load_gold_layer(df: pl.DataFrame, connection_uri: str) -> None:
+    """
+    AGENT INSTRUCTION: Persists the transformed Gold Polars DataFrame
+    into the PostgreSQL gold_FDA_PURPLE_BOOK table.
+    """
+    logger.info(f"Loading {df.height} rows into the gold layer database.")
+
+    if df.height == 0:
+        logger.info("Empty DataFrame provided. Skipping load.")
+        return
+
+    # Write the dataframe to the database
+    df.write_database(
+        table_name="gold_FDA_PURPLE_BOOK", connection=connection_uri, if_table_exists="replace", engine="adbc"
+    )
+    logger.info("Successfully loaded data into the gold layer.")
