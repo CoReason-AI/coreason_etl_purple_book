@@ -8,9 +8,12 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
+import re
 from datetime import date, datetime
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from pydantic import ValidationError
 
 from coreason_etl_purple_book.exceptions import DataIntegrityError
@@ -209,3 +212,27 @@ def test_invalid_date_format() -> None:
     with pytest.raises(ValidationError) as exc_info:
         SilverFdaPurpleBookManifest(**data)
     assert "approval_date" in str(exc_info.value)
+
+
+@given(bla_number=st.text(alphabet=st.characters(categories=["Lu", "Ll", "N" + "d"]), min_size=1, max_size=100))  # type: ignore[untyped-decorator, unused-ignore]
+def test_silver_manifest_hypothesis_valid_strings(bla_number: str) -> None:
+    data = {
+        "bla_number": bla_number,
+        "trade_name": "Test Brand",
+        "ingredient": "Test Ingredient",
+        "applicant_short": "Test Sponsor",
+        "license_type": "351(a)",
+        "approval_date": "2023-01-01",
+        "marketing_status": "Rx",
+    }
+
+    sanitized = re.sub(r"[^a-zA-Z0-9]", "", bla_number).strip()
+
+    if len(sanitized) > 6:
+        with pytest.raises(DataIntegrityError) as exc_info:
+            SilverFdaPurpleBookManifest(**data)
+        assert "BLA Number exceeds 6 characters after sanitization" in str(exc_info.value)
+    else:
+        manifest = SilverFdaPurpleBookManifest(**data)
+        assert len(manifest.bla_number) == 6
+        assert manifest.bla_number == sanitized.zfill(6)
