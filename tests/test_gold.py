@@ -8,7 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
 import polars as pl
@@ -28,7 +28,7 @@ def test_process_gold_layer_happy_path() -> None:
             "ingredient": ["Ingredient A", "Ingredient B", "Ingredient C"],
             "applicant_short": ["Sponsor A", "Sponsor B", "Sponsor C"],
             "license_type": ["351(a)", "351(k)", "351(a)"],
-            "approval_date": [datetime(2023, 1, 1), datetime(2024, 5, 15), datetime(2020, 1, 1)],
+            "approval_date": [date(2023, 1, 1), date(2024, 5, 15), date(2020, 1, 1)],
             "exclusivity_end_date": [future_date, None, past_date],
             "marketing_status": ["Rx", "OTC", "Rx"],
             "source_id": ["000123", "000456", "000789"],
@@ -63,7 +63,7 @@ def test_process_gold_layer_filter_active() -> None:
             "ingredient": ["Ingredient A", "Ingredient B"],
             "applicant_short": ["Sponsor A", "Sponsor B"],
             "license_type": ["351(a)", "351(k)"],
-            "approval_date": [datetime(2023, 1, 1), datetime(2024, 5, 15)],
+            "approval_date": [date(2023, 1, 1), date(2024, 5, 15)],
             "exclusivity_end_date": [None, None],
             "marketing_status": ["Rx", "DISCN"],
             "source_id": ["000123", "000456"],
@@ -90,7 +90,7 @@ def test_process_gold_layer_empty() -> None:
         "ingredient": pl.String,
         "applicant_short": pl.String,
         "license_type": pl.String,
-        "approval_date": pl.Datetime("us"),
+        "approval_date": pl.Date,
         "exclusivity_end_date": pl.Datetime("us"),
         "marketing_status": pl.String,
         "source_id": pl.String,
@@ -127,7 +127,7 @@ def test_load_gold_layer_valid() -> None:
             "ingredient": ["Ingredient A"],
             "applicant_short": ["Sponsor A"],
             "license_type": ["351(a)"],
-            "approval_date": [datetime(2023, 1, 1)],
+            "approval_date": [date(2023, 1, 1)],
             "marketing_status": ["Rx"],
             "source_id": ["000123"],
             "coreason_id": ["uuid1"],
@@ -171,7 +171,7 @@ def test_process_gold_layer_all_discontinued() -> None:
             "ingredient": ["Ingredient A"],
             "applicant_short": ["Sponsor A"],
             "license_type": ["351(a)"],
-            "approval_date": [datetime(2023, 1, 1)],
+            "approval_date": [date(2023, 1, 1)],
             "exclusivity_end_date": [None],
             "marketing_status": ["DISCN"],
             "source_id": ["000123"],

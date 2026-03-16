@@ -29,7 +29,7 @@ def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.Data
         "ingredient": pl.String,
         "applicant_short": pl.String,
         "license_type": pl.String,
-        "approval_date": pl.Datetime("us"),
+        "approval_date": pl.Date,
         "exclusivity_end_date": pl.Datetime("us"),
         "marketing_status": pl.String,
         "source_id": pl.String,

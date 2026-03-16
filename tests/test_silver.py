@@ -57,10 +57,10 @@ def test_process_silver_layer_valid() -> None:
         assert result_df["coreason_id"][1] == str(uuid.uuid5(NAMESPACE_FDA_PURPLE_BOOK, "000456"))
 
         # Verify date conversion
-        from datetime import datetime
+        from datetime import date, datetime
 
-        assert result_df["approval_date"][0] == datetime(2023, 1, 1)
-        assert result_df["approval_date"][1] == datetime(2024, 5, 15)
+        assert result_df["approval_date"][0] == date(2023, 1, 1)
+        assert result_df["approval_date"][1] == date(2024, 5, 15)
         assert result_df["exclusivity_end_date"][0] == datetime(2030, 1, 1)
         assert result_df["exclusivity_end_date"][1] is None
 
