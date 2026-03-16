@@ -19,6 +19,7 @@ from typing import Any
 import dlt
 from dlt.sources.helpers import requests
 
+from coreason_etl_purple_book.exceptions import SourceSchemaError
 from coreason_etl_purple_book.utils.logger import logger
 
 
@@ -80,6 +81,25 @@ def fda_purple_book_resource(url: str) -> Iterator[dict[str, Any]]:
     try:
         with open(file_path, encoding="utf-8-sig") as csv_file:
             reader = csv.DictReader(csv_file)
+
+            # Validate CSV header to ensure expected columns are present
+            required_columns = {
+                "BLA Number",
+                "Proprietary Name",
+                "Proper Name",
+                "Applicant",
+                "License Type",
+                "Approval Date",
+                "Exclusivity Expiration",
+                "Marketing Status",
+            }
+            if reader.fieldnames:
+                missing_columns = required_columns - set(reader.fieldnames)
+                if missing_columns:
+                    raise SourceSchemaError(f"Missing required columns in CSV header: {missing_columns}")
+            else:
+                raise SourceSchemaError("CSV file is empty or missing a header row.")
+
             for row in reader:
                 yield {
                     "source_file": source_file,
