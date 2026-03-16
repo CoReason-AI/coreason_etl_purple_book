@@ -67,14 +67,14 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
     logger.info(f"Validated {len(valid_rows)} rows successfully.")
 
     if not valid_rows:
-        schema = {
+        schema: dict[str, pl.DataType | type[pl.DataType]] = {
             "bla_number": pl.String,
             "trade_name": pl.String,
             "ingredient": pl.String,
             "applicant_short": pl.String,
             "license_type": pl.String,
-            "approval_date": pl.Date,
-            "exclusivity_end_date": pl.Date,
+            "approval_date": pl.Datetime("us"),
+            "exclusivity_end_date": pl.Datetime("us"),
             "marketing_status": pl.String,
             "source_id": pl.String,
             "coreason_id": pl.String,
@@ -85,3 +85,21 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
 
     # Generate the dual ID using map_batches and PyArrow as required
     return valid_df.with_columns(source_id=pl.col("bla_number"), coreason_id=get_coreason_id_expr("bla_number"))
+
+
+def load_silver_layer(df: pl.DataFrame, connection_uri: str) -> None:
+    """
+    AGENT INSTRUCTION: Loads the Silver Polars DataFrame into the PostgreSQL
+    silver_FDA_PURPLE_BOOK table.
+    """
+    logger.info(f"Loading {df.height} rows into the silver layer database.")
+
+    if df.height == 0:
+        logger.info("Empty DataFrame provided. Skipping load.")
+        return
+
+    # Write the dataframe to the database
+    df.write_database(
+        table_name="silver_FDA_PURPLE_BOOK", connection=connection_uri, if_table_exists="replace", engine="adbc"
+    )
+    logger.info("Successfully loaded data into the silver layer.")

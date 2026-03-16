@@ -8,15 +8,16 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import datetime, timedelta
+from unittest.mock import patch
 
 import polars as pl
 
-from coreason_etl_purple_book.gold import process_gold_layer
+from coreason_etl_purple_book.gold import load_gold_layer, process_gold_layer
 
 
 def test_process_gold_layer_happy_path() -> None:
-    current_date = datetime.now(UTC).date()
+    current_date = datetime.now()
     future_date = current_date + timedelta(days=365)
     past_date = current_date - timedelta(days=365)
 
@@ -27,7 +28,7 @@ def test_process_gold_layer_happy_path() -> None:
             "ingredient": ["Ingredient A", "Ingredient B", "Ingredient C"],
             "applicant_short": ["Sponsor A", "Sponsor B", "Sponsor C"],
             "license_type": ["351(a)", "351(k)", "351(a)"],
-            "approval_date": [date(2023, 1, 1), date(2024, 5, 15), date(2020, 1, 1)],
+            "approval_date": [datetime(2023, 1, 1), datetime(2024, 5, 15), datetime(2020, 1, 1)],
             "exclusivity_end_date": [future_date, None, past_date],
             "marketing_status": ["Rx", "OTC", "Rx"],
             "source_id": ["000123", "000456", "000789"],
@@ -62,7 +63,7 @@ def test_process_gold_layer_filter_active() -> None:
             "ingredient": ["Ingredient A", "Ingredient B"],
             "applicant_short": ["Sponsor A", "Sponsor B"],
             "license_type": ["351(a)", "351(k)"],
-            "approval_date": [date(2023, 1, 1), date(2024, 5, 15)],
+            "approval_date": [datetime(2023, 1, 1), datetime(2024, 5, 15)],
             "exclusivity_end_date": [None, None],
             "marketing_status": ["Rx", "DISCN"],
             "source_id": ["000123", "000456"],
@@ -83,14 +84,14 @@ def test_process_gold_layer_filter_active() -> None:
 
 def test_process_gold_layer_empty() -> None:
     # Testing empty DataFrame input
-    empty_schema = {
+    empty_schema: dict[str, pl.DataType | type[pl.DataType]] = {
         "bla_number": pl.String,
         "trade_name": pl.String,
         "ingredient": pl.String,
         "applicant_short": pl.String,
         "license_type": pl.String,
-        "approval_date": pl.Date,
-        "exclusivity_end_date": pl.Date,
+        "approval_date": pl.Datetime("us"),
+        "exclusivity_end_date": pl.Datetime("us"),
         "marketing_status": pl.String,
         "source_id": pl.String,
         "coreason_id": pl.String,
@@ -118,6 +119,50 @@ def test_process_gold_layer_empty() -> None:
     assert list(gold_df.columns) == expected_cols
 
 
+def test_load_gold_layer_valid() -> None:
+    mock_df = pl.DataFrame(
+        {
+            "bla_number": ["000123"],
+            "trade_name": ["Brand A"],
+            "ingredient": ["Ingredient A"],
+            "applicant_short": ["Sponsor A"],
+            "license_type": ["351(a)"],
+            "approval_date": [datetime(2023, 1, 1)],
+            "marketing_status": ["Rx"],
+            "source_id": ["000123"],
+            "coreason_id": ["uuid1"],
+            "is_biosimilar": [False],
+            "is_protected": [True],
+            "vector_prep": ["prep"],
+        }
+    )
+
+    with patch.object(pl.DataFrame, "write_database") as mock_write_db:
+        load_gold_layer(mock_df, "postgresql://user:pass@localhost:5432/db")
+
+        mock_write_db.assert_called_once_with(
+            table_name="gold_FDA_PURPLE_BOOK",
+            connection="postgresql://user:pass@localhost:5432/db",
+            if_table_exists="replace",
+            engine="adbc",
+        )
+
+
+def test_load_gold_layer_empty() -> None:
+    mock_df = pl.DataFrame(
+        {
+            "bla_number": [],
+            "trade_name": [],
+        }
+    )
+
+    with patch.object(pl.DataFrame, "write_database") as mock_write_db:
+        load_gold_layer(mock_df, "postgresql://user:pass@localhost:5432/db")
+
+        # It should skip writing to database if height is 0
+        mock_write_db.assert_not_called()
+
+
 def test_process_gold_layer_all_discontinued() -> None:
     silver_df = pl.DataFrame(
         {
@@ -126,7 +171,7 @@ def test_process_gold_layer_all_discontinued() -> None:
             "ingredient": ["Ingredient A"],
             "applicant_short": ["Sponsor A"],
             "license_type": ["351(a)"],
-            "approval_date": [date(2023, 1, 1)],
+            "approval_date": [datetime(2023, 1, 1)],
             "exclusivity_end_date": [None],
             "marketing_status": ["DISCN"],
             "source_id": ["000123"],

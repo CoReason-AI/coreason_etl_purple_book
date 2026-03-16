@@ -8,8 +8,64 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
-from coreason_etl_purple_book.main import hello_world
+import os
+from unittest.mock import MagicMock, patch
+
+import polars as pl
+
+from coreason_etl_purple_book.main import hello_world, run_pipeline
 
 
 def test_hello_world() -> None:
     assert hello_world() == "Hello World!"
+
+
+@patch("coreason_etl_purple_book.main.load_gold_layer")
+@patch("coreason_etl_purple_book.main.process_gold_layer")
+@patch("coreason_etl_purple_book.main.load_silver_layer")
+@patch("coreason_etl_purple_book.main.process_silver_layer")
+@patch("dlt.pipeline")
+@patch.dict(os.environ, {"FDA_PURPLE_BOOK_URL": "http://test.url", "PGUSER": "testuser"}, clear=True)
+def test_run_pipeline(
+    mock_pipeline_cls: MagicMock,
+    mock_process_silver: MagicMock,
+    mock_load_silver: MagicMock,
+    mock_process_gold: MagicMock,
+    mock_load_gold: MagicMock,
+) -> None:
+    # Setup mocks
+    mock_pipeline_instance = MagicMock()
+    mock_pipeline_cls.return_value = mock_pipeline_instance
+    mock_pipeline_instance.run.return_value = "LoadInfoMock"
+
+    mock_silver_df = pl.DataFrame({"test": [1]})
+    mock_process_silver.return_value = mock_silver_df
+
+    mock_gold_df = pl.DataFrame({"test": [2]})
+    mock_process_gold.return_value = mock_gold_df
+
+    # Execute
+    with patch("coreason_etl_purple_book.main.fda_purple_book_source") as mock_source:
+        mock_source_obj = MagicMock()
+        mock_source.return_value = mock_source_obj
+
+        run_pipeline()
+
+        # Assert Bronze Pipeline
+        mock_pipeline_cls.assert_called_once_with(
+            pipeline_name="fda_purple_book_pipeline",
+            destination="postgres",
+            dataset_name="public",
+        )
+        mock_source.assert_called_once_with(url="http://test.url")
+        mock_pipeline_instance.run.assert_called_once_with(mock_source_obj)
+
+        expected_conn_uri = "postgresql://testuser:postgres@localhost:5432/postgres"
+
+        # Assert Silver processing
+        mock_process_silver.assert_called_once_with(connection_uri=expected_conn_uri)
+        mock_load_silver.assert_called_once_with(df=mock_silver_df, connection_uri=expected_conn_uri)
+
+        # Assert Gold processing
+        mock_process_gold.assert_called_once_with(df=mock_silver_df, is_active_only=True)
+        mock_load_gold.assert_called_once_with(df=mock_gold_df, connection_uri=expected_conn_uri)
