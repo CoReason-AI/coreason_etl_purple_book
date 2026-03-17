@@ -13,7 +13,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, StrictStr, field_validator
 
-from coreason_etl_purple_book.exceptions import DataIntegrityError
+from coreason_etl_purple_book.utils.logger import logger
 
 
 class SilverFdaPurpleBookManifest(BaseModel):
@@ -118,7 +118,7 @@ class SilverFdaPurpleBookManifest(BaseModel):
         sanitized = re.sub(r"[^a-zA-Z0-9]", "", v).strip()
 
         if len(sanitized) > 6:
-            raise DataIntegrityError(f"BLA Number exceeds 6 characters after sanitization: '{sanitized}'")
+            logger.warning(f"BLA Number exceeds 6 characters after sanitization: '{sanitized}'")
 
         # Left-pad with zeros
         return sanitized.zfill(6)

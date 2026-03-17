@@ -53,11 +53,10 @@ def generate_coreason_id_batch(series: pl.Series) -> pl.Series:
             return None
         return str(uuid.uuid5(NAMESPACE_FDA_PURPLE_BOOK, str(val)))
 
-    # Convert to Python list and map
-    # A true pyarrow native approach for sha1/uuid5 is not available out of the box
-    # so we iterate over the Python list extracted from pyarrow.
-    # This fulfills the structural requirement to use map_batches and PyArrow types.
-    result_list = [calculate_uuid(val.as_py()) for val in arrow_array]
+    # Convert to Python list using to_pylist() instead of iterating over PyArrow scalars
+    # and calling .as_py() per item. This minimizes the GIL overhead and significantly
+    # speeds up iteration when a pure Python operation (like hashlib/uuid5) is unavoidable.
+    result_list = [calculate_uuid(val) for val in arrow_array.to_pylist()]
 
     return pl.Series(series.name, result_list, dtype=pl.String)
 
