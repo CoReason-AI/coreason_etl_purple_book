@@ -10,13 +10,13 @@
 
 import re
 from datetime import date, datetime
+from unittest.mock import patch
 
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from coreason_etl_purple_book.exceptions import DataIntegrityError
 from coreason_etl_purple_book.schemas import SilverFdaPurpleBookManifest
 
 
@@ -168,7 +168,7 @@ def test_bla_number_sanitization_alphanumeric_only() -> None:
     assert manifest.bla_number == "BLA123"
 
 
-def test_bla_number_length_validation_fails() -> None:
+def test_bla_number_length_validation_logs_warning() -> None:
     data = {
         "bla_number": "1234567",
         "trade_name": "Test",
@@ -178,10 +178,11 @@ def test_bla_number_length_validation_fails() -> None:
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
     }
-    # Because DataIntegrityError is not derived from ValueError, pydantic doesn't wrap it.
-    with pytest.raises(DataIntegrityError) as exc_info:
-        SilverFdaPurpleBookManifest(**data)
-    assert "BLA Number exceeds 6 characters after sanitization" in str(exc_info.value)
+    with patch("coreason_etl_purple_book.schemas.logger.warning") as mock_warning:
+        manifest = SilverFdaPurpleBookManifest(**data)
+
+    mock_warning.assert_called_once_with("BLA Number exceeds 6 characters after sanitization: '1234567'")
+    assert manifest.bla_number == "1234567"
 
 
 def test_bla_number_integer_input() -> None:
@@ -214,7 +215,7 @@ def test_invalid_date_format() -> None:
     assert "approval_date" in str(exc_info.value)
 
 
-@given(bla_number=st.text(alphabet=st.characters(categories=["Lu", "Ll", "N" + "d"]), min_size=1, max_size=100))  # type: ignore[untyped-decorator, unused-ignore]
+@given(bla_number=st.text(alphabet=st.characters(categories=["Lu", "Ll", "N" + "d"]), min_size=1, max_size=100))  # type: ignore[untyped-decorator, unused-ignore, list-item]
 def test_silver_manifest_hypothesis_valid_strings(bla_number: str) -> None:
     data = {
         "bla_number": bla_number,
@@ -228,11 +229,12 @@ def test_silver_manifest_hypothesis_valid_strings(bla_number: str) -> None:
 
     sanitized = re.sub(r"[^a-zA-Z0-9]", "", bla_number).strip()
 
-    if len(sanitized) > 6:
-        with pytest.raises(DataIntegrityError) as exc_info:
-            SilverFdaPurpleBookManifest(**data)
-        assert "BLA Number exceeds 6 characters after sanitization" in str(exc_info.value)
-    else:
+    with patch("coreason_etl_purple_book.schemas.logger.warning") as mock_warning:
         manifest = SilverFdaPurpleBookManifest(**data)
+
+    if len(sanitized) > 6:
+        mock_warning.assert_called_once_with(f"BLA Number exceeds 6 characters after sanitization: '{sanitized}'")
+        assert manifest.bla_number == sanitized
+    else:
         assert len(manifest.bla_number) == 6
         assert manifest.bla_number == sanitized.zfill(6)
