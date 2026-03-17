@@ -82,11 +82,12 @@ def test_process_silver_layer_mixed_valid_and_invalid() -> None:
     with patch("polars.read_database", return_value=mock_df):
         result_df = process_silver_layer("postgresql://user:pass@localhost:5432/db")
 
-        # Only 1st row is valid
-        # 2nd row has BLA too long -> DataIntegrityError
-        # 3rd row has invalid date -> ValidationError
-        assert len(result_df) == 1
+        # 1st row is valid
+        # 2nd row has BLA too long, but now only logs a warning instead of dropping
+        # 3rd row has invalid date -> ValidationError and is dropped
+        assert len(result_df) == 2
         assert result_df["bla_number"][0] == "000123"
+        assert result_df["bla_number"][1] == "toolong123"
 
 
 def test_process_silver_layer_empty() -> None:
@@ -155,12 +156,12 @@ def test_process_silver_layer_all_invalid() -> None:
     # DB response with all invalid data
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": ["toolongbla", "anotherlongbla"],
+            "source_bla_number": ["123", "456"],
             "proprietary_name": ["A", "B"],
             "proper_name": ["A", "B"],
             "applicant": ["A", "B"],
             "license_type": ["A", "B"],
-            "approval_date": ["2023-01-01", "2023-01-01"],
+            "approval_date": ["invalid_date", "invalid_date"],
             "exclusivity_expiration": [None, None],
             "marketing_status": ["Rx", "OTC"],
         }
