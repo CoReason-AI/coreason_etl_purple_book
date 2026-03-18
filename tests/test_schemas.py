@@ -34,7 +34,7 @@ def test_silver_manifest_valid() -> None:
     manifest = SilverFdaPurpleBookManifest(**data)
     assert manifest.bla_number == "001234"
     assert manifest.approval_date == date(2023, 1, 1)
-    assert manifest.exclusivity_end_date == datetime(2030, 1, 1)
+    assert manifest.exclusivity_end_date == date(2030, 1, 1)
 
 
 def test_date_parsing_formats() -> None:
@@ -97,13 +97,19 @@ def test_date_parsing_formats() -> None:
     # integer exclusivity_end_date
     with pytest.raises(ValidationError) as exc_info:
         SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": 20240228})
-    assert "Expected a string or datetime" in str(exc_info.value)
+    assert "Expected a string, date, or datetime" in str(exc_info.value)
 
     # valid datetime object exclusivity_end_date
     manifest8 = SilverFdaPurpleBookManifest(
         **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": datetime(2024, 2, 28)}
     )
-    assert manifest8.exclusivity_end_date == datetime(2024, 2, 28)
+    assert manifest8.exclusivity_end_date == date(2024, 2, 28)
+
+    # valid date object exclusivity_end_date
+    manifest10 = SilverFdaPurpleBookManifest(
+        **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": date(2024, 2, 28)}
+    )
+    assert manifest10.exclusivity_end_date == date(2024, 2, 28)
 
     # None exclusivity_end_date
     manifest9 = SilverFdaPurpleBookManifest(

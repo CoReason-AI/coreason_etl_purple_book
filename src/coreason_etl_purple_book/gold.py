@@ -15,7 +15,7 @@ import polars as pl
 from coreason_etl_purple_book.utils.logger import logger
 
 
-def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.DataFrame:
+def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame:
     """
     AGENT INSTRUCTION: Processes the Silver layer DataFrame into the Gold layer schema.
     Applies filtering, derives boolean flags, and concatenates fields for vector embeddings.
@@ -30,7 +30,7 @@ def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.Data
         "applicant_short": pl.String,
         "license_type": pl.String,
         "approval_date": pl.Date,
-        "exclusivity_end_date": pl.Datetime("us"),
+        "exclusivity_end_date": pl.Date,
         "marketing_status": pl.String,
         "source_id": pl.String,
         "coreason_id": pl.String,
@@ -44,7 +44,7 @@ def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.Data
         return pl.DataFrame(schema=expected_schema)
 
     # 1. Filter out discontinued products
-    if is_active_only:
+    if is_active:
         logger.info("Filtering active products.")
         # Only exclude specifically 'DISCN' as per the spec, keep everything else
         df = df.filter(pl.col("marketing_status") != "DISCN")
@@ -55,8 +55,8 @@ def process_gold_layer(df: pl.DataFrame, is_active_only: bool = True) -> pl.Data
 
     # 2. Derive columns
     logger.info("Adding derived columns (is_biosimilar, is_protected, vector_prep).")
-    # Pydantic validates as naive datetime, use timezone-naive datetime here to avoid ComputeError
-    current_date = datetime.now()
+    # Pydantic validates as date, use timezone-naive date here to avoid ComputeError
+    current_date = datetime.now().date()
 
     df = df.with_columns(
         is_biosimilar=pl.col("license_type") == "351(k)",

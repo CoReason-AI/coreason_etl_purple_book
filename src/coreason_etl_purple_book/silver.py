@@ -13,7 +13,6 @@ from typing import Any
 import polars as pl
 from pydantic import ValidationError
 
-from coreason_etl_purple_book.exceptions import DataIntegrityError
 from coreason_etl_purple_book.identity import get_coreason_id_expr
 from coreason_etl_purple_book.schemas import SilverFdaPurpleBookManifest
 from coreason_etl_purple_book.utils.logger import logger
@@ -61,7 +60,7 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
         try:
             validated = SilverFdaPurpleBookManifest(**raw_data)
             valid_rows.append(validated.model_dump())
-        except (ValidationError, DataIntegrityError) as e:
+        except ValidationError as e:
             logger.warning(f"Data validation failed for row: {raw_data}. Error: {e}")
 
     logger.info(f"Validated {len(valid_rows)} rows successfully.")
@@ -74,7 +73,7 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
             "applicant_short": pl.String,
             "license_type": pl.String,
             "approval_date": pl.Date,
-            "exclusivity_end_date": pl.Datetime("us"),
+            "exclusivity_end_date": pl.Date,
             "marketing_status": pl.String,
             "source_id": pl.String,
             "coreason_id": pl.String,

@@ -67,5 +67,5 @@ def test_run_pipeline(
         mock_load_silver.assert_called_once_with(df=mock_silver_df, connection_uri=expected_conn_uri)
 
         # Assert Gold processing
-        mock_process_gold.assert_called_once_with(df=mock_silver_df, is_active_only=True)
+        mock_process_gold.assert_called_once_with(df=mock_silver_df, is_active=True)
         mock_load_gold.assert_called_once_with(df=mock_gold_df, connection_uri=expected_conn_uri)
