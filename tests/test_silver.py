@@ -57,11 +57,11 @@ def test_process_silver_layer_valid() -> None:
         assert result_df["coreason_id"][1] == str(uuid.uuid5(NAMESPACE_FDA_PURPLE_BOOK, "000456"))
 
         # Verify date conversion
-        from datetime import date, datetime
+        from datetime import date
 
         assert result_df["approval_date"][0] == date(2023, 1, 1)
         assert result_df["approval_date"][1] == date(2024, 5, 15)
-        assert result_df["exclusivity_end_date"][0] == datetime(2030, 1, 1)
+        assert result_df["exclusivity_end_date"][0] == date(2030, 1, 1)
         assert result_df["exclusivity_end_date"][1] is None
 
 
@@ -88,6 +88,33 @@ def test_process_silver_layer_mixed_valid_and_invalid() -> None:
         assert len(result_df) == 2
         assert result_df["bla_number"][0] == "000123"
         assert result_df["bla_number"][1] == "toolong123"
+
+
+def test_process_silver_layer_data_integrity_error_propagation() -> None:
+    mock_df = pl.DataFrame(
+        {
+            "source_bla_number": ["123"],
+            "proprietary_name": ["Brand A"],
+            "proper_name": ["Ingredient A"],
+            "applicant": ["Sponsor A"],
+            "license_type": ["351(a)"],
+            "approval_date": ["2023-01-01"],
+            "exclusivity_expiration": [None],
+            "marketing_status": ["Rx"],
+        }
+    )
+
+    with patch("polars.read_database", return_value=mock_df):
+        from coreason_etl_purple_book.exceptions import DataIntegrityError
+
+        with patch(
+            "coreason_etl_purple_book.silver.SilverFdaPurpleBookManifest",
+            side_effect=DataIntegrityError("Critical Failure"),
+        ):
+            import pytest
+
+            with pytest.raises(DataIntegrityError, match="Critical Failure"):
+                process_silver_layer("postgresql://user:pass@localhost:5432/db")
 
 
 def test_process_silver_layer_empty() -> None:

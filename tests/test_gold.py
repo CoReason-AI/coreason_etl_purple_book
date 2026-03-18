@@ -17,7 +17,7 @@ from coreason_etl_purple_book.gold import load_gold_layer, process_gold_layer
 
 
 def test_process_gold_layer_happy_path() -> None:
-    current_date = datetime.now()
+    current_date = datetime.now().date()
     future_date = current_date + timedelta(days=365)
     past_date = current_date - timedelta(days=365)
 
@@ -71,13 +71,13 @@ def test_process_gold_layer_filter_active() -> None:
         }
     )
 
-    # By default, is_active_only=True
+    # By default, is_active=True
     gold_df_active = process_gold_layer(silver_df)
     assert gold_df_active.height == 1
     assert gold_df_active["marketing_status"][0] == "Rx"
 
-    # With is_active_only=False
-    gold_df_all = process_gold_layer(silver_df, is_active_only=False)
+    # With is_active=False
+    gold_df_all = process_gold_layer(silver_df, is_active=False)
     assert gold_df_all.height == 2
     assert "DISCN" in gold_df_all["marketing_status"].to_list()
 
@@ -91,7 +91,7 @@ def test_process_gold_layer_empty() -> None:
         "applicant_short": pl.String,
         "license_type": pl.String,
         "approval_date": pl.Date,
-        "exclusivity_end_date": pl.Datetime("us"),
+        "exclusivity_end_date": pl.Date,
         "marketing_status": pl.String,
         "source_id": pl.String,
         "coreason_id": pl.String,

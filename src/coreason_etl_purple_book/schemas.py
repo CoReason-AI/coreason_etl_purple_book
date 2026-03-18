@@ -31,7 +31,7 @@ class SilverFdaPurpleBookManifest(BaseModel):
     applicant_short: str = Field(..., description="Sponsor (Applicant)")
     license_type: str = Field(..., description="e.g., 351(a) Reference, 351(k) Biosimilar")
     approval_date: date = Field(..., description="Parsed date format")
-    exclusivity_end_date: datetime | None = Field(None, description="Optional exclusivity expiration date")
+    exclusivity_end_date: date | None = Field(None, description="Optional exclusivity expiration date")
     marketing_status: str = Field(..., description="Rx, OTC, DISCN")
 
     @field_validator("approval_date", mode="before")
@@ -71,17 +71,19 @@ class SilverFdaPurpleBookManifest(BaseModel):
 
     @field_validator("exclusivity_end_date", mode="before")
     @classmethod
-    def parse_fda_dates(cls, v: str | datetime | None) -> datetime | None:
+    def parse_fda_dates(cls, v: str | date | datetime | None) -> date | None:
         """
-        Parses FDA specific date formats into Python datetime objects.
+        Parses FDA specific date formats into Python date objects.
         Expected formats include ISO 8601 (YYYY-MM-DD), MM/DD/YYYY, and Month DD, YYYY.
         """
         if not v:
             return None
         if isinstance(v, datetime):
+            return v.date()
+        if isinstance(v, date):
             return v
         if not isinstance(v, str):
-            raise ValueError(f"Expected a string or datetime, got {type(v).__name__}")
+            raise ValueError(f"Expected a string, date, or datetime, got {type(v).__name__}")
 
         v = v.strip()
         if not v:
@@ -97,7 +99,7 @@ class SilverFdaPurpleBookManifest(BaseModel):
 
         for fmt in formats_to_try:
             try:
-                return datetime.strptime(v, fmt)
+                return datetime.strptime(v, fmt).date()
             except ValueError:
                 continue
 

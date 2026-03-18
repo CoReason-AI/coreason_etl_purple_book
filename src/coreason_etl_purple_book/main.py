@@ -56,7 +56,7 @@ def run_pipeline() -> None:
 
     # 3. Gold Layer Enrichment and Loading
     logger.info("Executing Gold Layer Pipeline")
-    gold_df = process_gold_layer(df=silver_df, is_active_only=True)
+    gold_df = process_gold_layer(df=silver_df, is_active=True)
     load_gold_layer(df=gold_df, connection_uri=connection_uri)
 
     logger.info("FDA Purple Book ETL Pipeline completed successfully.")
