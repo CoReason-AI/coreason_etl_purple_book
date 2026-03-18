@@ -68,14 +68,14 @@ def test_process_silver_layer_valid() -> None:
 def test_process_silver_layer_mixed_valid_and_invalid() -> None:
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": ["123", "toolong123", "456"],
-            "proprietary_name": ["Brand A", "Brand B", "Brand C"],
-            "proper_name": ["Ingredient A", "Ingredient B", "Ingredient C"],
-            "applicant": ["Sponsor A", "Sponsor B", "Sponsor C"],
-            "license_type": ["351(a)", "351(k)", "351(a)"],
-            "approval_date": ["2023-01-01", "2024-05-15", "invalid_date"],
-            "exclusivity_expiration": [None, None, None],
-            "marketing_status": ["Rx", "OTC", "Rx"],
+            "source_bla_number": ["123", "toolong123"],
+            "proprietary_name": ["Brand A", "Brand B"],
+            "proper_name": ["Ingredient A", "Ingredient B"],
+            "applicant": ["Sponsor A", "Sponsor B"],
+            "license_type": ["351(a)", "351(k)"],
+            "approval_date": ["2023-01-01", "2024-05-15"],
+            "exclusivity_expiration": [None, None],
+            "marketing_status": ["Rx", "OTC"],
         }
     )
 
@@ -84,7 +84,6 @@ def test_process_silver_layer_mixed_valid_and_invalid() -> None:
 
         # 1st row is valid
         # 2nd row has BLA too long, but now only logs a warning instead of dropping
-        # 3rd row has invalid date -> ValidationError and is dropped
         assert len(result_df) == 2
         assert result_df["bla_number"][0] == "000123"
         assert result_df["bla_number"][1] == "toolong123"
@@ -195,7 +194,9 @@ def test_process_silver_layer_all_invalid() -> None:
     )
 
     with patch("polars.read_database", return_value=mock_df):
-        result_df = process_silver_layer("postgresql://user:pass@localhost:5432/db")
+        import pytest
 
-        assert len(result_df) == 0
-        assert isinstance(result_df, pl.DataFrame)
+        from coreason_etl_purple_book.exceptions import DataIntegrityError
+
+        with pytest.raises(DataIntegrityError, match="Data validation failed for row"):
+            process_silver_layer("postgresql://user:pass@localhost:5432/db")
