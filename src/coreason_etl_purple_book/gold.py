@@ -59,12 +59,10 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
     current_date = datetime.now().date()
 
     df = df.with_columns(
-        is_biosimilar=pl.col("license_type") == "351(k)",
-        is_protected=pl.when(pl.col("exclusivity_end_date").is_not_null())
-        .then(pl.lit(current_date) < pl.col("exclusivity_end_date"))
-        .otherwise(pl.lit(False)),
-        vector_prep=(
-            pl.col("trade_name") + pl.lit(" ") + pl.col("ingredient") + pl.lit(" ") + pl.col("applicant_short")
+        is_biosimilar=(pl.col("license_type") == "351(k)"),
+        is_protected=(pl.lit(current_date) < pl.col("exclusivity_end_date")).fill_null(False),
+        vector_prep=pl.concat_str(
+            [pl.col("trade_name"), pl.col("ingredient"), pl.col("applicant_short")], separator=" "
         ),
     )
 
