@@ -35,7 +35,7 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
         raw_content->>'Approval Date' as approval_date,
         raw_content->>'Exclusivity Expiration' as exclusivity_expiration,
         raw_content->>'Marketing Status' as marketing_status
-    FROM bronze_FDA_PURPLE_BOOK
+    FROM bronze.coreason_etl_purple_book_bronze_fda_purple_book
     """
     logger.info("Executing SQL to read from bronze layer.")
     df = pl.read_database(query=query, connection=connection_uri)
@@ -106,6 +106,9 @@ def load_silver_layer(df: pl.DataFrame, connection_uri: str) -> None:
 
     # Write the dataframe to the database
     df.write_database(
-        table_name="silver_FDA_PURPLE_BOOK", connection=connection_uri, if_table_exists="replace", engine="adbc"
+        table_name="silver.coreason_etl_purple_book_silver_fda_purple_book",
+        connection=connection_uri,
+        if_table_exists="replace",
+        engine="adbc",
     )
     logger.info("Successfully loaded data into the silver layer.")

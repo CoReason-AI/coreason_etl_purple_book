@@ -80,7 +80,7 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
 def load_gold_layer(df: pl.DataFrame, connection_uri: str) -> None:
     """
     AGENT INSTRUCTION: Persists the transformed Gold Polars DataFrame
-    into the PostgreSQL gold_FDA_PURPLE_BOOK table.
+    into the PostgreSQL gold.coreason_etl_purple_book_gold_fda_purple_book table.
     """
     logger.info(f"Loading {df.height} rows into the gold layer database.")
 
@@ -90,6 +90,9 @@ def load_gold_layer(df: pl.DataFrame, connection_uri: str) -> None:
 
     # Write the dataframe to the database
     df.write_database(
-        table_name="gold_FDA_PURPLE_BOOK", connection=connection_uri, if_table_exists="replace", engine="adbc"
+        table_name="gold.coreason_etl_purple_book_gold_fda_purple_book",
+        connection=connection_uri,
+        if_table_exists="replace",
+        engine="adbc",
     )
     logger.info("Successfully loaded data into the gold layer.")

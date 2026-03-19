@@ -17,6 +17,7 @@ dependencies = [
     "dlt>=1.0.0",
     "polars>=1.39.0",
     "pyarrow>=23.0.1",
+    "psycopg2-binary>=2.9.11",
 ]
 license = { file = "LICENSE" }
 classifiers = [

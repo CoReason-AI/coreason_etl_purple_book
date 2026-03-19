@@ -157,9 +157,9 @@ def test_fda_purple_book_source() -> None:
     with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
         source_generator = fda_purple_book_source(url=test_url)
         resources = source_generator.resources
-        assert "bronze_FDA_PURPLE_BOOK" in resources
+        assert "coreason_etl_purple_book_bronze_fda_purple_book" in resources
 
-        resource = resources["bronze_FDA_PURPLE_BOOK"]
+        resource = resources["coreason_etl_purple_book_bronze_fda_purple_book"]
         rows = list(resource)
 
     assert len(rows) == 1

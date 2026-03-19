@@ -20,6 +20,21 @@ def test_hello_world() -> None:
     assert hello_world() == "Hello World!"
 
 
+def test_run_pipeline_schema_failure() -> None:
+    # Verify that the pipeline continues even if the CREATE SCHEMA statements fail
+    with (
+        patch("coreason_etl_purple_book.main.fda_purple_book_source"),
+        patch("coreason_etl_purple_book.main.load_gold_layer"),
+        patch("coreason_etl_purple_book.main.process_gold_layer"),
+        patch("coreason_etl_purple_book.main.load_silver_layer"),
+        patch("coreason_etl_purple_book.main.process_silver_layer"),
+        patch("dlt.pipeline"),
+        patch("psycopg2.connect", side_effect=Exception("DB Error")),
+        patch.dict(os.environ, {"FDA_PURPLE_BOOK_URL": "http://test.url"}, clear=True),
+    ):
+        run_pipeline()
+
+
 @patch("coreason_etl_purple_book.main.load_gold_layer")
 @patch("coreason_etl_purple_book.main.process_gold_layer")
 @patch("coreason_etl_purple_book.main.load_silver_layer")
@@ -45,17 +60,32 @@ def test_run_pipeline(
     mock_process_gold.return_value = mock_gold_df
 
     # Execute
-    with patch("coreason_etl_purple_book.main.fda_purple_book_source") as mock_source:
+    with (
+        patch("coreason_etl_purple_book.main.fda_purple_book_source") as mock_source,
+        patch("psycopg2.connect") as mock_connect,
+    ):
         mock_source_obj = MagicMock()
         mock_source.return_value = mock_source_obj
 
+        # Mock psycopg2 connection
+        mock_conn = MagicMock()
+        mock_connect.return_value.__enter__.return_value = mock_conn
+
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
         run_pipeline()
+
+        # Verify DDL executed
+        mock_connect.assert_called_once()
+        mock_conn.cursor.assert_called_once()
+        assert mock_cursor.execute.call_count == 3
 
         # Assert Bronze Pipeline
         mock_pipeline_cls.assert_called_once_with(
             pipeline_name="fda_purple_book_pipeline",
             destination="postgres",
-            dataset_name="public",
+            dataset_name="bronze",
         )
         mock_source.assert_called_once_with(url="http://test.url")
         mock_pipeline_instance.run.assert_called_once_with(mock_source_obj)
