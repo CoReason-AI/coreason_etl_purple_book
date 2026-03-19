@@ -107,7 +107,7 @@ def test_process_silver_layer_data_integrity_error_propagation() -> None:
         from coreason_etl_purple_book.exceptions import DataIntegrityError
 
         with patch(
-            "coreason_etl_purple_book.silver.SilverFdaPurpleBookManifest",
+            "pydantic.TypeAdapter.validate_python",
             side_effect=DataIntegrityError("Critical Failure"),
         ):
             import pytest
@@ -198,5 +198,5 @@ def test_process_silver_layer_all_invalid() -> None:
 
         from coreason_etl_purple_book.exceptions import DataIntegrityError
 
-        with pytest.raises(DataIntegrityError, match="Data validation failed for row"):
+        with pytest.raises(DataIntegrityError, match="Data validation failed\\. Error:"):
             process_silver_layer("postgresql://user:pass@localhost:5432/db")
