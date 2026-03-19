@@ -31,9 +31,12 @@ def test_download_and_hash_csv_success() -> None:
     mock_response.raise_for_status.return_value = None
     mock_response.iter_content.return_value = [test_data[:5], test_data[5:]]
 
-    with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response) as mock_get:
         file_path, md5_digest = source.download_and_hash_csv(test_url)
 
+    mock_get.assert_called_once_with(
+        test_url, stream=True, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    )
     assert md5_digest == expected_hash
     assert os.path.exists(file_path)
 
