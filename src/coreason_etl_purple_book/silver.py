@@ -42,7 +42,9 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
 
     logger.info(f"Loaded {df.height} rows from database.")
 
-    # Rename columns to match Pydantic model
+    # Rename columns to match Pydantic model.
+    # Use strict=False so missing columns from the SQL query won't crash Polars.
+    # Missing columns will correctly fail Pydantic validation instead.
     renamed_df = df.rename(
         {
             "source_bla_number": "bla_number",
@@ -50,7 +52,8 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
             "proper_name": "ingredient",
             "applicant": "applicant_short",
             "exclusivity_expiration": "exclusivity_end_date",
-        }
+        },
+        strict=False,
     )
 
     valid_rows: list[dict[str, Any]] = []
