@@ -35,34 +35,40 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
         raw_content->>'Approval Date' as approval_date,
         raw_content->>'Exclusivity Expiration' as exclusivity_expiration,
         raw_content->>'Marketing Status' as marketing_status
-    FROM bronze_FDA_PURPLE_BOOK
+    FROM bronze.coreason_etl_purple_book_bronze_fda_purple_book
     """
     logger.info("Executing SQL to read from bronze layer.")
     df = pl.read_database(query=query, connection=connection_uri)
 
     logger.info(f"Loaded {df.height} rows from database.")
 
+    # Rename columns to match Pydantic model.
+    # Use strict=False so missing columns from the SQL query won't crash Polars.
+    # Missing columns will correctly fail Pydantic validation instead.
+    renamed_df = df.rename(
+        {
+            "source_bla_number": "bla_number",
+            "proprietary_name": "trade_name",
+            "proper_name": "ingredient",
+            "applicant": "applicant_short",
+            "exclusivity_expiration": "exclusivity_end_date",
+        },
+        strict=False,
+    )
+
     valid_rows: list[dict[str, Any]] = []
 
     # Map the unpacked SQL columns to target schema fields for Pydantic
-    for row in df.iter_rows(named=True):
-        raw_data = {
-            "bla_number": row.get("source_bla_number"),
-            "trade_name": row.get("proprietary_name"),
-            "ingredient": row.get("proper_name"),
-            "applicant_short": row.get("applicant"),
-            "license_type": row.get("license_type"),
-            "approval_date": row.get("approval_date"),
-            "exclusivity_end_date": row.get("exclusivity_expiration"),
-            "marketing_status": row.get("marketing_status"),
-        }
+    try:
+        from pydantic import TypeAdapter
 
-        # Pydantic validation handles parsing, coercion, and sanitization/padding
-        try:
-            validated = SilverFdaPurpleBookManifest(**raw_data)
-            valid_rows.append(validated.model_dump())
-        except ValidationError as e:
-            raise DataIntegrityError(f"Data validation failed for row: {raw_data}. Error: {e}") from e
+        adapter = TypeAdapter(list[SilverFdaPurpleBookManifest])
+        raw_dicts = renamed_df.to_dicts()
+        validated_models = adapter.validate_python(raw_dicts)
+        valid_rows = [model.model_dump() for model in validated_models]
+    except ValidationError as e:
+        # Pydantic ValidationError contains the list of errors
+        raise DataIntegrityError(f"Data validation failed. Error: {e}") from e
 
     logger.info(f"Validated {len(valid_rows)} rows successfully.")
 
@@ -100,6 +106,9 @@ def load_silver_layer(df: pl.DataFrame, connection_uri: str) -> None:
 
     # Write the dataframe to the database
     df.write_database(
-        table_name="silver_FDA_PURPLE_BOOK", connection=connection_uri, if_table_exists="replace", engine="adbc"
+        table_name="silver.coreason_etl_purple_book_silver_fda_purple_book",
+        connection=connection_uri,
+        if_table_exists="replace",
+        engine="adbc",
     )
     logger.info("Successfully loaded data into the silver layer.")

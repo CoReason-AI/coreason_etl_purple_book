@@ -141,7 +141,7 @@ def test_load_gold_layer_valid() -> None:
         load_gold_layer(mock_df, "postgresql://user:pass@localhost:5432/db")
 
         mock_write_db.assert_called_once_with(
-            table_name="gold_FDA_PURPLE_BOOK",
+            table_name="gold.coreason_etl_purple_book_gold_fda_purple_book",
             connection="postgresql://user:pass@localhost:5432/db",
             if_table_exists="replace",
             engine="adbc",
