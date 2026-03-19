@@ -24,27 +24,23 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
     AGENT INSTRUCTION: Extracts the raw_content JSONB from the PostgreSQL Bronze table,
     normalizes types, generates coreason_id, and filters/validates using Pydantic.
     """
-    # The requirement is to pull data from bronze and unpack JSONB in SQL.
     query = """
     SELECT
         raw_content->>'BLA Number' as source_bla_number,
         raw_content->>'Proprietary Name' as proprietary_name,
         raw_content->>'Proper Name' as proper_name,
         raw_content->>'Applicant' as applicant,
-        raw_content->>'License Type' as license_type,
+        raw_content->>'BLA Type' as license_type,
         raw_content->>'Approval Date' as approval_date,
-        raw_content->>'Exclusivity Expiration' as exclusivity_expiration,
+        raw_content->>'Exclusivity Expiration Date' as exclusivity_expiration,
         raw_content->>'Marketing Status' as marketing_status
     FROM bronze.coreason_etl_purple_book_bronze_fda_purple_book
     """
     logger.info("Executing SQL to read from bronze layer.")
-    df = pl.read_database(query=query, connection=connection_uri)
+    df = pl.read_database_uri(query=query, uri=connection_uri)
 
     logger.info(f"Loaded {df.height} rows from database.")
 
-    # Rename columns to match Pydantic model.
-    # Use strict=False so missing columns from the SQL query won't crash Polars.
-    # Missing columns will correctly fail Pydantic validation instead.
     renamed_df = df.rename(
         {
             "source_bla_number": "bla_number",
@@ -56,9 +52,11 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
         strict=False,
     )
 
+    # Filter out any repeated header rows that sneak into the dataset
+    renamed_df = renamed_df.filter(pl.col("bla_number") != "BLA Number")
+
     valid_rows: list[dict[str, Any]] = []
 
-    # Map the unpacked SQL columns to target schema fields for Pydantic
     try:
         from pydantic import TypeAdapter
 
@@ -67,29 +65,31 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
         validated_models = adapter.validate_python(raw_dicts)
         valid_rows = [model.model_dump() for model in validated_models]
     except ValidationError as e:
-        # Pydantic ValidationError contains the list of errors
         raise DataIntegrityError(f"Data validation failed. Error: {e}") from e
 
     logger.info(f"Validated {len(valid_rows)} rows successfully.")
 
+    # Define the strict schema to prevent PyArrow 'na' type inference errors on empty columns
+    base_schema: dict[str, pl.DataType | type[pl.DataType]] = {
+        "bla_number": pl.String,
+        "trade_name": pl.String,
+        "ingredient": pl.String,
+        "applicant_short": pl.String,
+        "license_type": pl.String,
+        "approval_date": pl.Date,
+        "exclusivity_end_date": pl.Date,
+        "marketing_status": pl.String,
+    }
+
     if not valid_rows:
-        schema: dict[str, pl.DataType | type[pl.DataType]] = {
-            "bla_number": pl.String,
-            "trade_name": pl.String,
-            "ingredient": pl.String,
-            "applicant_short": pl.String,
-            "license_type": pl.String,
-            "approval_date": pl.Date,
-            "exclusivity_end_date": pl.Date,
-            "marketing_status": pl.String,
-            "source_id": pl.String,
-            "coreason_id": pl.String,
-        }
-        return pl.DataFrame(schema=schema)
+        empty_schema = base_schema.copy()
+        empty_schema["source_id"] = pl.String
+        empty_schema["coreason_id"] = pl.String
+        return pl.DataFrame(schema=empty_schema)
 
-    valid_df = pl.DataFrame(valid_rows)
+    # Force the schema during DataFrame creation
+    valid_df = pl.DataFrame(valid_rows, schema=base_schema)
 
-    # Generate the dual ID using map_batches and PyArrow as required
     return valid_df.with_columns(source_id=pl.col("bla_number"), coreason_id=get_coreason_id_expr("bla_number"))
 
 

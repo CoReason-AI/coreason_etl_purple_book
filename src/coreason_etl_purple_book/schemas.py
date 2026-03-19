@@ -30,7 +30,9 @@ class SilverFdaPurpleBookManifest(BaseModel):
     ingredient: str = Field(..., description="Biological/Core name (Active substance) (Proper Name)")
     applicant_short: str = Field(..., description="Sponsor (Applicant)")
     license_type: str = Field(..., description="e.g., 351(a) Reference, 351(k) Biosimilar")
-    approval_date: date = Field(..., description="Parsed date format")
+    
+    # UPDATED: Made approval_date optional to handle missing historical dates
+    approval_date: date | None = Field(None, description="Parsed date format")
     exclusivity_end_date: date | None = Field(None, description="Optional exclusivity expiration date")
     marketing_status: str = Field(..., description="Rx, OTC, DISCN")
 
@@ -39,7 +41,7 @@ class SilverFdaPurpleBookManifest(BaseModel):
     def parse_fda_dates(cls, v: str | date | datetime | None) -> date | None:
         """
         Parses FDA specific date formats into Python date objects.
-        Expected formats include ISO 8601 (YYYY-MM-DD), MM/DD/YYYY, and Month DD, YYYY.
+        Expected formats include ISO 8601 (YYYY-MM-DD), MM/DD/YYYY, Month DD, YYYY, and DD-Mon-YY.
         """
         if not v:
             return None
@@ -55,10 +57,11 @@ class SilverFdaPurpleBookManifest(BaseModel):
             return None
 
         formats_to_try = [
-            "%Y-%m-%d",  # 2024-02-28
-            "%m/%d/%Y",  # 02/28/2024
+            "%Y-%m-%d",   # 2024-02-28
+            "%m/%d/%Y",   # 02/28/2024
             "%B %d, %Y",  # February 28, 2024
             "%b %d, %Y",  # Feb 28, 2024
+            "%d-%b-%y",   # 21-May-04 (New FDA Format)
         ]
 
         for fmt in formats_to_try:
@@ -75,8 +78,6 @@ class SilverFdaPurpleBookManifest(BaseModel):
         """
         Strips whitespace and non-alphanumeric chars. Validates length <= 6. Left-pads with zeros to 6 digits.
         """
-        # Type validation is implicitly handled by StrictStr, but if we're in 'before' validator,
-        # we need to be careful. StrictStr actually validates during parsing. Let's do a strict check here.
         if not isinstance(v, str):
             raise ValueError(f"BLA Number must be a string, got {type(v).__name__}")
 
