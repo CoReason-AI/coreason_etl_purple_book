@@ -34,12 +34,35 @@ def run_pipeline() -> None:
 
     connection_uri = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
 
+    # Execute DDL to ensure schemas exist
+    try:
+        from urllib.parse import urlparse
+
+        import psycopg2  # type: ignore[import-untyped, unused-ignore]
+
+        parsed_uri = urlparse(connection_uri)
+        with psycopg2.connect(
+            host=parsed_uri.hostname,
+            port=parsed_uri.port,
+            user=parsed_uri.username,
+            password=parsed_uri.password,
+            dbname=parsed_uri.path.lstrip("/"),
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute("CREATE SCHEMA IF NOT EXISTS bronze;")
+                cur.execute("CREATE SCHEMA IF NOT EXISTS silver;")
+                cur.execute("CREATE SCHEMA IF NOT EXISTS gold;")
+            conn.commit()
+        logger.info("Successfully ensured required schemas exist.")
+    except Exception as e:
+        logger.warning(f"Failed to run schema DDL, continuing anyway. Error: {e}")
+
     # 1. Bronze Layer Extraction and Loading (using dlt)
     logger.info("Executing Bronze Layer Pipeline")
     pipeline = dlt.pipeline(
         pipeline_name="fda_purple_book_pipeline",
         destination="postgres",
-        dataset_name="public",  # Use public or target schema as required
+        dataset_name="bronze",  # Bronze schema
     )
 
     # We allow parameterized URL if provided in env, otherwise fallback to source default

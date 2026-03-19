@@ -107,7 +107,7 @@ def test_process_silver_layer_data_integrity_error_propagation() -> None:
         from coreason_etl_purple_book.exceptions import DataIntegrityError
 
         with patch(
-            "coreason_etl_purple_book.silver.SilverFdaPurpleBookManifest",
+            "pydantic.TypeAdapter.validate_python",
             side_effect=DataIntegrityError("Critical Failure"),
         ):
             import pytest
@@ -156,7 +156,7 @@ def test_load_silver_layer_valid() -> None:
         load_silver_layer(mock_df, "postgresql://user:pass@localhost:5432/db")
 
         mock_write_db.assert_called_once_with(
-            table_name="silver_FDA_PURPLE_BOOK",
+            table_name="silver.coreason_etl_purple_book_silver_fda_purple_book",
             connection="postgresql://user:pass@localhost:5432/db",
             if_table_exists="replace",
             engine="adbc",
@@ -198,5 +198,82 @@ def test_process_silver_layer_all_invalid() -> None:
 
         from coreason_etl_purple_book.exceptions import DataIntegrityError
 
-        with pytest.raises(DataIntegrityError, match="Data validation failed for row"):
+        with pytest.raises(DataIntegrityError, match=r"Data validation failed\. Error:"):
+            process_silver_layer("postgresql://user:pass@localhost:5432/db")
+
+
+def test_process_silver_layer_complex_dates_and_edge_cases() -> None:
+    # DB response with edge cases:
+    # 1. Various valid date formats
+    # 2. Empty strings in optional date fields
+    # 3. Extra columns that should be ignored by Pydantic
+    mock_df = pl.DataFrame(
+        {
+            "source_bla_number": ["001", "002", "003", "004"],
+            "proprietary_name": ["A", "B", "C", "D"],
+            "proper_name": ["A", "B", "C", "D"],
+            "applicant": ["A", "B", "C", "D"],
+            "license_type": ["A", "B", "C", "D"],
+            "approval_date": [
+                "2023-01-01",  # ISO 8601
+                "02/28/2024",  # MM/DD/YYYY
+                "February 28, 2024",  # Month DD, YYYY
+                "Feb 28, 2024",  # Mon DD, YYYY
+            ],
+            "exclusivity_expiration": [
+                "",  # Empty string (should parse to None)
+                " ",  # Whitespace string (should parse to None)
+                None,  # Explicit None
+                "2030-12-31",  # Valid date
+            ],
+            "marketing_status": ["Rx", "OTC", "Rx", "Rx"],
+            "extra_unexpected_column": ["ignore", "this", "column", "entirely"],
+        }
+    )
+
+    with patch("polars.read_database", return_value=mock_df):
+        result_df = process_silver_layer("postgresql://user:pass@localhost:5432/db")
+
+        assert len(result_df) == 4
+        from datetime import date
+
+        # Verify parsed approval dates
+        assert result_df["approval_date"][0] == date(2023, 1, 1)
+        assert result_df["approval_date"][1] == date(2024, 2, 28)
+        assert result_df["approval_date"][2] == date(2024, 2, 28)
+        assert result_df["approval_date"][3] == date(2024, 2, 28)
+
+        # Verify parsed exclusivity dates (handling empty/whitespace strings vs valid ones)
+        assert result_df["exclusivity_end_date"][0] is None
+        assert result_df["exclusivity_end_date"][1] is None
+        assert result_df["exclusivity_end_date"][2] is None
+        assert result_df["exclusivity_end_date"][3] == date(2030, 12, 31)
+
+        # Verify extra columns are cleanly ignored and not present in the output
+        assert "extra_unexpected_column" not in result_df.columns
+
+
+def test_process_silver_layer_missing_required_fields() -> None:
+    # DB response missing required columns, simulating structural change in the source/bronze layer
+    mock_df = pl.DataFrame(
+        {
+            "source_bla_number": ["123"],
+            "proprietary_name": ["A"],
+            # missing "proper_name" which maps to "ingredient"
+            "applicant": ["A"],
+            "license_type": ["A"],
+            "approval_date": ["2023-01-01"],
+            "exclusivity_expiration": [None],
+            "marketing_status": ["Rx"],
+        }
+    )
+
+    with patch("polars.read_database", return_value=mock_df):
+        import pytest
+
+        from coreason_etl_purple_book.exceptions import DataIntegrityError
+
+        with pytest.raises(
+            DataIntegrityError, match=r"(?s)Data validation failed\. Error:.*ingredient.*Field required"
+        ):
             process_silver_layer("postgresql://user:pass@localhost:5432/db")

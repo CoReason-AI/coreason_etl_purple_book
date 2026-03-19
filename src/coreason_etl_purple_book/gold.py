@@ -59,12 +59,10 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
     current_date = datetime.now().date()
 
     df = df.with_columns(
-        is_biosimilar=pl.col("license_type") == "351(k)",
-        is_protected=pl.when(pl.col("exclusivity_end_date").is_not_null())
-        .then(pl.lit(current_date) < pl.col("exclusivity_end_date"))
-        .otherwise(pl.lit(False)),
-        vector_prep=(
-            pl.col("trade_name") + pl.lit(" ") + pl.col("ingredient") + pl.lit(" ") + pl.col("applicant_short")
+        is_biosimilar=(pl.col("license_type") == "351(k)"),
+        is_protected=(pl.lit(current_date) < pl.col("exclusivity_end_date")).fill_null(False),
+        vector_prep=pl.concat_str(
+            [pl.col("trade_name"), pl.col("ingredient"), pl.col("applicant_short")], separator=" "
         ),
     )
 
@@ -82,7 +80,7 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
 def load_gold_layer(df: pl.DataFrame, connection_uri: str) -> None:
     """
     AGENT INSTRUCTION: Persists the transformed Gold Polars DataFrame
-    into the PostgreSQL gold_FDA_PURPLE_BOOK table.
+    into the PostgreSQL gold.coreason_etl_purple_book_gold_fda_purple_book table.
     """
     logger.info(f"Loading {df.height} rows into the gold layer database.")
 
@@ -92,6 +90,9 @@ def load_gold_layer(df: pl.DataFrame, connection_uri: str) -> None:
 
     # Write the dataframe to the database
     df.write_database(
-        table_name="gold_FDA_PURPLE_BOOK", connection=connection_uri, if_table_exists="replace", engine="adbc"
+        table_name="gold.coreason_etl_purple_book_gold_fda_purple_book",
+        connection=connection_uri,
+        if_table_exists="replace",
+        engine="adbc",
     )
     logger.info("Successfully loaded data into the gold layer.")

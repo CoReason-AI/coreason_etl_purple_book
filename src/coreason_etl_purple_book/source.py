@@ -46,7 +46,8 @@ class FdaPurpleBookSource:
         fd, file_path = tempfile.mkstemp(suffix=".csv")
 
         try:
-            with os.fdopen(fd, "wb") as f, requests.get(url, stream=True) as response:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            with os.fdopen(fd, "wb") as f, requests.get(url, stream=True, headers=headers) as response:
                 response.raise_for_status()
                 # Stream the response in chunks to avoid OOM errors
                 for chunk in response.iter_content(chunk_size=8192):
@@ -64,7 +65,7 @@ class FdaPurpleBookSource:
             raise e
 
 
-@dlt.resource(name="bronze_FDA_PURPLE_BOOK", write_disposition="replace", max_table_nesting=0)  # type: ignore[untyped-decorator, unused-ignore]
+@dlt.resource(name="coreason_etl_purple_book_bronze_fda_purple_book", write_disposition="replace", max_table_nesting=0)  # type: ignore[untyped-decorator, unused-ignore]
 def fda_purple_book_resource(url: str) -> Iterator[dict[str, Any]]:
     """
     Downloads the FDA Purple Book dataset and yields raw CSV rows in a single "raw_content" JSON key.
