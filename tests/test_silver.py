@@ -31,13 +31,13 @@ def test_process_silver_layer_valid() -> None:
         }
     )
 
-    with patch("polars.read_database", return_value=mock_df) as mock_read_db:
+    with patch("polars.read_database_uri", return_value=mock_df) as mock_read_db:
         result_df = process_silver_layer("postgresql://user:pass@localhost:5432/db")
 
         mock_read_db.assert_called_once()
         assert "query" in mock_read_db.call_args.kwargs
-        assert "connection" in mock_read_db.call_args.kwargs
-        assert mock_read_db.call_args.kwargs["connection"] == "postgresql://user:pass@localhost:5432/db"
+        assert "uri" in mock_read_db.call_args.kwargs
+        assert mock_read_db.call_args.kwargs["uri"] == "postgresql://user:pass@localhost:5432/db"
 
         assert len(result_df) == 2
 
@@ -79,7 +79,7 @@ def test_process_silver_layer_mixed_valid_and_invalid() -> None:
         }
     )
 
-    with patch("polars.read_database", return_value=mock_df):
+    with patch("polars.read_database_uri", return_value=mock_df):
         result_df = process_silver_layer("postgresql://user:pass@localhost:5432/db")
 
         # 1st row is valid
@@ -103,7 +103,7 @@ def test_process_silver_layer_data_integrity_error_propagation() -> None:
         }
     )
 
-    with patch("polars.read_database", return_value=mock_df):
+    with patch("polars.read_database_uri", return_value=mock_df):
         from coreason_etl_purple_book.exceptions import DataIntegrityError
 
         with patch(
@@ -131,7 +131,7 @@ def test_process_silver_layer_empty() -> None:
         }
     )
 
-    with patch("polars.read_database", return_value=mock_df):
+    with patch("polars.read_database_uri", return_value=mock_df):
         result_df = process_silver_layer("postgresql://user:pass@localhost:5432/db")
 
         assert len(result_df) == 0
@@ -193,7 +193,7 @@ def test_process_silver_layer_all_invalid() -> None:
         }
     )
 
-    with patch("polars.read_database", return_value=mock_df):
+    with patch("polars.read_database_uri", return_value=mock_df):
         import pytest
 
         from coreason_etl_purple_book.exceptions import DataIntegrityError
@@ -231,7 +231,7 @@ def test_process_silver_layer_complex_dates_and_edge_cases() -> None:
         }
     )
 
-    with patch("polars.read_database", return_value=mock_df):
+    with patch("polars.read_database_uri", return_value=mock_df):
         result_df = process_silver_layer("postgresql://user:pass@localhost:5432/db")
 
         assert len(result_df) == 4
@@ -268,7 +268,7 @@ def test_process_silver_layer_missing_required_fields() -> None:
         }
     )
 
-    with patch("polars.read_database", return_value=mock_df):
+    with patch("polars.read_database_uri", return_value=mock_df):
         import pytest
 
         from coreason_etl_purple_book.exceptions import DataIntegrityError

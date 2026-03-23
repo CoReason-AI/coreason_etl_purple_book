@@ -30,7 +30,7 @@ class SilverFdaPurpleBookManifest(BaseModel):
     ingredient: str = Field(..., description="Biological/Core name (Active substance) (Proper Name)")
     applicant_short: str = Field(..., description="Sponsor (Applicant)")
     license_type: str = Field(..., description="e.g., 351(a) Reference, 351(k) Biosimilar")
-    
+
     # UPDATED: Made approval_date optional to handle missing historical dates
     approval_date: date | None = Field(None, description="Parsed date format")
     exclusivity_end_date: date | None = Field(None, description="Optional exclusivity expiration date")
@@ -57,11 +57,11 @@ class SilverFdaPurpleBookManifest(BaseModel):
             return None
 
         formats_to_try = [
-            "%Y-%m-%d",   # 2024-02-28
-            "%m/%d/%Y",   # 02/28/2024
+            "%Y-%m-%d",  # 2024-02-28
+            "%m/%d/%Y",  # 02/28/2024
             "%B %d, %Y",  # February 28, 2024
             "%b %d, %Y",  # Feb 28, 2024
-            "%d-%b-%y",   # 21-May-04 (New FDA Format)
+            "%d-%b-%y",  # 21-May-04 (New FDA Format)
         ]
 
         for fmt in formats_to_try:

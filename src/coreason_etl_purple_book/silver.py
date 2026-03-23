@@ -10,6 +10,8 @@
 
 from typing import Any
 
+import adbc_driver_postgresql  # type: ignore[import-untyped, unused-ignore]
+import connectorx  # type: ignore[import-untyped, unused-ignore]
 import polars as pl
 from pydantic import ValidationError
 
@@ -17,6 +19,10 @@ from coreason_etl_purple_book.exceptions import DataIntegrityError
 from coreason_etl_purple_book.identity import get_coreason_id_expr
 from coreason_etl_purple_book.schemas import SilverFdaPurpleBookManifest
 from coreason_etl_purple_book.utils.logger import logger
+
+# Just so it's not removed by ruff or flagged by deptry as unused:
+_ = adbc_driver_postgresql
+_ = connectorx
 
 
 def process_silver_layer(connection_uri: str) -> pl.DataFrame:

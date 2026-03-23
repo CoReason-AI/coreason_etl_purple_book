@@ -118,14 +118,12 @@ def test_date_parsing_formats() -> None:
     assert manifest9.exclusivity_end_date is None
 
     # None approval_date
-    with pytest.raises(ValidationError) as exc_info:
-        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": None})
-    assert "Input should be a valid date" in str(exc_info.value)
+    manifest_none_approval = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": None})
+    assert manifest_none_approval.approval_date is None
 
     # empty space approval_date
-    with pytest.raises(ValidationError) as exc_info:
-        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "   "})
-    assert "Input should be a valid date" in str(exc_info.value)
+    manifest_space_approval = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "   "})
+    assert manifest_space_approval.approval_date is None
 
 
 def test_silver_manifest_valid_no_exclusivity() -> None:
