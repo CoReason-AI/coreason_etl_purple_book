@@ -23,26 +23,26 @@ from coreason_etl_purple_book.schemas import SilverFdaPurpleBookManifest
 def test_silver_manifest_valid() -> None:
     data = {
         "bla_number": "1234",
-        "trade_name": "Test Brand",
-        "ingredient": "Test Ingredient",
-        "applicant_short": "Test Sponsor",
+        "proprietary_name": "Test Brand",
+        "proper_name": "Test Ingredient",
+        "applicant": "Test Sponsor",
         "license_type": "351(a)",
         "approval_date": "2023-01-01",
-        "exclusivity_end_date": "2030-01-01",
+        "exclusivity_expiration": "2030-01-01",
         "marketing_status": "Rx",
     }
     manifest = SilverFdaPurpleBookManifest(**data)
     assert manifest.bla_number == "001234"
     assert manifest.approval_date == date(2023, 1, 1)
-    assert manifest.exclusivity_end_date == date(2030, 1, 1)
+    assert manifest.exclusivity_expiration == date(2030, 1, 1)
 
 
 def test_date_parsing_formats() -> None:
     base_data = {
         "bla_number": "1234",
-        "trade_name": "Test",
-        "ingredient": "Test",
-        "applicant_short": "Test",
+        "proprietary_name": "Test",
+        "proper_name": "Test",
+        "applicant": "Test",
         "license_type": "351(a)",
         "marketing_status": "Rx",
     }
@@ -69,9 +69,9 @@ def test_date_parsing_formats() -> None:
 
     # Empty string tests
     manifest6 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": "   "}
+        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": "   "}
     )
-    assert manifest6.exclusivity_end_date is None
+    assert manifest6.exclusivity_expiration is None
 
     # Integer instead of string/date/datetime
     with pytest.raises(ValidationError) as exc_info:
@@ -83,39 +83,41 @@ def test_date_parsing_formats() -> None:
         SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "28/02/2024"})
     assert "Unrecognized date format" in str(exc_info.value)
 
-    # empty string exclusivity_end_date
-    manifest7 = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": ""})
-    assert manifest7.exclusivity_end_date is None
+    # empty string exclusivity_expiration
+    manifest7 = SilverFdaPurpleBookManifest(
+        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": ""}
+    )
+    assert manifest7.exclusivity_expiration is None
 
-    # invalid date exclusivity_end_date
+    # invalid date exclusivity_expiration
     with pytest.raises(ValidationError) as exc_info:
         SilverFdaPurpleBookManifest(
-            **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": "28/02/2024"}
+            **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": "28/02/2024"}
         )
     assert "Unrecognized date format" in str(exc_info.value)
 
-    # integer exclusivity_end_date
+    # integer exclusivity_expiration
     with pytest.raises(ValidationError) as exc_info:
-        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": 20240228})
+        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": 20240228})
     assert "Expected a string, date, or datetime" in str(exc_info.value)
 
-    # valid datetime object exclusivity_end_date
+    # valid datetime object exclusivity_expiration
     manifest8 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": datetime(2024, 2, 28)}
+        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": datetime(2024, 2, 28)}
     )
-    assert manifest8.exclusivity_end_date == date(2024, 2, 28)
+    assert manifest8.exclusivity_expiration == date(2024, 2, 28)
 
-    # valid date object exclusivity_end_date
+    # valid date object exclusivity_expiration
     manifest10 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": date(2024, 2, 28)}
+        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": date(2024, 2, 28)}
     )
-    assert manifest10.exclusivity_end_date == date(2024, 2, 28)
+    assert manifest10.exclusivity_expiration == date(2024, 2, 28)
 
-    # None exclusivity_end_date
+    # None exclusivity_expiration
     manifest9 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_end_date": None}
+        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": None}
     )
-    assert manifest9.exclusivity_end_date is None
+    assert manifest9.exclusivity_expiration is None
 
     # None approval_date
     manifest_none_approval = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": None})
@@ -129,25 +131,25 @@ def test_date_parsing_formats() -> None:
 def test_silver_manifest_valid_no_exclusivity() -> None:
     data = {
         "bla_number": " 123 ",
-        "trade_name": "Test Brand",
-        "ingredient": "Test Ingredient",
-        "applicant_short": "Test Sponsor",
+        "proprietary_name": "Test Brand",
+        "proper_name": "Test Ingredient",
+        "applicant": "Test Sponsor",
         "license_type": "351(k)",
         "approval_date": "2023-01-01",
-        "exclusivity_end_date": None,
+        "exclusivity_expiration": None,
         "marketing_status": "OTC",
     }
     manifest = SilverFdaPurpleBookManifest(**data)
     assert manifest.bla_number == "000123"
-    assert manifest.exclusivity_end_date is None
+    assert manifest.exclusivity_expiration is None
 
 
 def test_bla_number_sanitization() -> None:
     data = {
         "bla_number": "  12-34_a. ",
-        "trade_name": "Test",
-        "ingredient": "Test",
-        "applicant_short": "Test",
+        "proprietary_name": "Test",
+        "proper_name": "Test",
+        "applicant": "Test",
         "license_type": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
@@ -161,9 +163,9 @@ def test_bla_number_sanitization() -> None:
 def test_bla_number_sanitization_alphanumeric_only() -> None:
     data = {
         "bla_number": "BLA 123",
-        "trade_name": "Test",
-        "ingredient": "Test",
-        "applicant_short": "Test",
+        "proprietary_name": "Test",
+        "proper_name": "Test",
+        "applicant": "Test",
         "license_type": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
@@ -175,9 +177,9 @@ def test_bla_number_sanitization_alphanumeric_only() -> None:
 def test_bla_number_length_validation_logs_warning() -> None:
     data = {
         "bla_number": "1234567",
-        "trade_name": "Test",
-        "ingredient": "Test",
-        "applicant_short": "Test",
+        "proprietary_name": "Test",
+        "proper_name": "Test",
+        "applicant": "Test",
         "license_type": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
@@ -192,9 +194,9 @@ def test_bla_number_length_validation_logs_warning() -> None:
 def test_bla_number_integer_input() -> None:
     data = {
         "bla_number": 123,
-        "trade_name": "Test",
-        "ingredient": "Test",
-        "applicant_short": "Test",
+        "proprietary_name": "Test",
+        "proper_name": "Test",
+        "applicant": "Test",
         "license_type": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
@@ -207,9 +209,9 @@ def test_bla_number_integer_input() -> None:
 def test_invalid_date_format() -> None:
     data = {
         "bla_number": "123",
-        "trade_name": "Test",
-        "ingredient": "Test",
-        "applicant_short": "Test",
+        "proprietary_name": "Test",
+        "proper_name": "Test",
+        "applicant": "Test",
         "license_type": "351(a)",
         "approval_date": "not-a-date",
         "marketing_status": "Rx",
@@ -223,9 +225,9 @@ def test_invalid_date_format() -> None:
 def test_silver_manifest_hypothesis_valid_strings(bla_number: str) -> None:
     data = {
         "bla_number": bla_number,
-        "trade_name": "Test Brand",
-        "ingredient": "Test Ingredient",
-        "applicant_short": "Test Sponsor",
+        "proprietary_name": "Test Brand",
+        "proper_name": "Test Ingredient",
+        "applicant": "Test Sponsor",
         "license_type": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",

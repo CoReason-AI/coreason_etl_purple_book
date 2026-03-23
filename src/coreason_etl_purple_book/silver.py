@@ -30,14 +30,17 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
     """
     query = """
     SELECT
-        raw_content->>'BLA Number' as source_bla_number,
+        raw_content->>'BLA Number' as bla_number,
         raw_content->>'Proprietary Name' as proprietary_name,
         raw_content->>'Proper Name' as proper_name,
         raw_content->>'Applicant' as applicant,
-        raw_content->>'BLA Type' as license_type,
+        raw_content->>'License Type' as license_type,
         raw_content->>'Approval Date' as approval_date,
-        raw_content->>'Exclusivity Expiration Date' as exclusivity_expiration,
-        raw_content->>'Marketing Status' as marketing_status
+        raw_content->>'Exclusivity Expiration' as exclusivity_expiration,
+        raw_content->>'Marketing Status' as marketing_status,
+        raw_content->>'Strength' as strength,
+        raw_content->>'Route of Administration' as route_of_administration,
+        raw_content->>'Product Presentation' as product_presentation
     FROM bronze.coreason_etl_purple_book_bronze_fda_purple_book
     """
     logger.info("Executing SQL to read from bronze layer.")
@@ -45,19 +48,8 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
 
     logger.info(f"Loaded {df.height} rows from database.")
 
-    renamed_df = df.rename(
-        {
-            "source_bla_number": "bla_number",
-            "proprietary_name": "trade_name",
-            "proper_name": "ingredient",
-            "applicant": "applicant_short",
-            "exclusivity_expiration": "exclusivity_end_date",
-        },
-        strict=False,
-    )
-
     # Filter out any repeated header rows that sneak into the dataset
-    renamed_df = renamed_df.filter(pl.col("bla_number") != "BLA Number")
+    df = df.filter(pl.col("bla_number") != "BLA Number")
 
     valid_rows: list[dict[str, Any]] = []
 
@@ -65,7 +57,7 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
         from pydantic import TypeAdapter
 
         adapter = TypeAdapter(list[SilverFdaPurpleBookManifest])
-        raw_dicts = renamed_df.to_dicts()
+        raw_dicts = df.to_dicts()
         validated_models = adapter.validate_python(raw_dicts)
         valid_rows = [model.model_dump() for model in validated_models]
     except ValidationError as e:
@@ -76,13 +68,16 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
     # Define the strict schema to prevent PyArrow 'na' type inference errors on empty columns
     base_schema: dict[str, pl.DataType | type[pl.DataType]] = {
         "bla_number": pl.String,
-        "trade_name": pl.String,
-        "ingredient": pl.String,
-        "applicant_short": pl.String,
+        "proprietary_name": pl.String,
+        "proper_name": pl.String,
+        "applicant": pl.String,
         "license_type": pl.String,
         "approval_date": pl.Date,
-        "exclusivity_end_date": pl.Date,
+        "exclusivity_expiration": pl.Date,
         "marketing_status": pl.String,
+        "strength": pl.String,
+        "route_of_administration": pl.String,
+        "product_presentation": pl.String,
     }
 
     if not valid_rows:

@@ -20,7 +20,7 @@ from coreason_etl_purple_book.silver import load_silver_layer, process_silver_la
 def test_process_silver_layer_valid() -> None:
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": [" 123 ", "456"],
+            "bla_number": [" 123 ", "456"],
             "proprietary_name": ["Brand A", "Brand B"],
             "proper_name": ["Ingredient A", "Ingredient B"],
             "applicant": ["Sponsor A", "Sponsor B"],
@@ -28,6 +28,9 @@ def test_process_silver_layer_valid() -> None:
             "approval_date": ["2023-01-01", "2024-05-15"],
             "exclusivity_expiration": ["2030-01-01", None],
             "marketing_status": ["Rx", "OTC"],
+            "strength": ["10mg", None],
+            "route_of_administration": ["Oral", "IV"],
+            "product_presentation": ["Tablet", "Vial"],
         }
     )
 
@@ -45,7 +48,7 @@ def test_process_silver_layer_valid() -> None:
         assert "bla_number" in result_df.columns
         assert "source_id" in result_df.columns
         assert "coreason_id" in result_df.columns
-        assert "exclusivity_end_date" in result_df.columns
+        assert "exclusivity_expiration" in result_df.columns
 
         # Verify ID sanitization and generation
         assert result_df["bla_number"][0] == "000123"
@@ -61,14 +64,14 @@ def test_process_silver_layer_valid() -> None:
 
         assert result_df["approval_date"][0] == date(2023, 1, 1)
         assert result_df["approval_date"][1] == date(2024, 5, 15)
-        assert result_df["exclusivity_end_date"][0] == date(2030, 1, 1)
-        assert result_df["exclusivity_end_date"][1] is None
+        assert result_df["exclusivity_expiration"][0] == date(2030, 1, 1)
+        assert result_df["exclusivity_expiration"][1] is None
 
 
 def test_process_silver_layer_mixed_valid_and_invalid() -> None:
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": ["123", "toolong123"],
+            "bla_number": ["123", "toolong123"],
             "proprietary_name": ["Brand A", "Brand B"],
             "proper_name": ["Ingredient A", "Ingredient B"],
             "applicant": ["Sponsor A", "Sponsor B"],
@@ -76,6 +79,9 @@ def test_process_silver_layer_mixed_valid_and_invalid() -> None:
             "approval_date": ["2023-01-01", "2024-05-15"],
             "exclusivity_expiration": [None, None],
             "marketing_status": ["Rx", "OTC"],
+            "strength": ["10mg", None],
+            "route_of_administration": ["Oral", "IV"],
+            "product_presentation": ["Tablet", "Vial"],
         }
     )
 
@@ -92,7 +98,7 @@ def test_process_silver_layer_mixed_valid_and_invalid() -> None:
 def test_process_silver_layer_data_integrity_error_propagation() -> None:
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": ["123"],
+            "bla_number": ["123"],
             "proprietary_name": ["Brand A"],
             "proper_name": ["Ingredient A"],
             "applicant": ["Sponsor A"],
@@ -100,6 +106,9 @@ def test_process_silver_layer_data_integrity_error_propagation() -> None:
             "approval_date": ["2023-01-01"],
             "exclusivity_expiration": [None],
             "marketing_status": ["Rx"],
+            "strength": [None],
+            "route_of_administration": [None],
+            "product_presentation": [None],
         }
     )
 
@@ -120,7 +129,7 @@ def test_process_silver_layer_empty() -> None:
     # Empty DB response
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": [],
+            "bla_number": [],
             "proprietary_name": [],
             "proper_name": [],
             "applicant": [],
@@ -128,7 +137,23 @@ def test_process_silver_layer_empty() -> None:
             "approval_date": [],
             "exclusivity_expiration": [],
             "marketing_status": [],
-        }
+            "strength": [],
+            "route_of_administration": [],
+            "product_presentation": [],
+        },
+        schema={
+            "bla_number": pl.String,
+            "proprietary_name": pl.String,
+            "proper_name": pl.String,
+            "applicant": pl.String,
+            "license_type": pl.String,
+            "approval_date": pl.String,
+            "exclusivity_expiration": pl.String,
+            "marketing_status": pl.String,
+            "strength": pl.String,
+            "route_of_administration": pl.String,
+            "product_presentation": pl.String,
+        },
     )
 
     with patch("polars.read_database_uri", return_value=mock_df):
@@ -142,9 +167,9 @@ def test_load_silver_layer_valid() -> None:
     mock_df = pl.DataFrame(
         {
             "bla_number": ["000123"],
-            "trade_name": ["Brand A"],
-            "ingredient": ["Ingredient A"],
-            "applicant_short": ["Sponsor A"],
+            "proprietary_name": ["Brand A"],
+            "proper_name": ["Ingredient A"],
+            "applicant": ["Sponsor A"],
             "license_type": ["351(a)"],
             "marketing_status": ["Rx"],
             "source_id": ["000123"],
@@ -167,7 +192,7 @@ def test_load_silver_layer_empty() -> None:
     mock_df = pl.DataFrame(
         {
             "bla_number": [],
-            "trade_name": [],
+            "proprietary_name": [],
         }
     )
 
@@ -182,7 +207,7 @@ def test_process_silver_layer_all_invalid() -> None:
     # DB response with all invalid data
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": ["123", "456"],
+            "bla_number": ["123", "456"],
             "proprietary_name": ["A", "B"],
             "proper_name": ["A", "B"],
             "applicant": ["A", "B"],
@@ -190,6 +215,9 @@ def test_process_silver_layer_all_invalid() -> None:
             "approval_date": ["invalid_date", "invalid_date"],
             "exclusivity_expiration": [None, None],
             "marketing_status": ["Rx", "OTC"],
+            "strength": [None, None],
+            "route_of_administration": [None, None],
+            "product_presentation": [None, None],
         }
     )
 
@@ -209,7 +237,7 @@ def test_process_silver_layer_complex_dates_and_edge_cases() -> None:
     # 3. Extra columns that should be ignored by Pydantic
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": ["001", "002", "003", "004"],
+            "bla_number": ["001", "002", "003", "004"],
             "proprietary_name": ["A", "B", "C", "D"],
             "proper_name": ["A", "B", "C", "D"],
             "applicant": ["A", "B", "C", "D"],
@@ -227,6 +255,9 @@ def test_process_silver_layer_complex_dates_and_edge_cases() -> None:
                 "2030-12-31",  # Valid date
             ],
             "marketing_status": ["Rx", "OTC", "Rx", "Rx"],
+            "strength": [None, None, None, None],
+            "route_of_administration": [None, None, None, None],
+            "product_presentation": [None, None, None, None],
             "extra_unexpected_column": ["ignore", "this", "column", "entirely"],
         }
     )
@@ -244,10 +275,10 @@ def test_process_silver_layer_complex_dates_and_edge_cases() -> None:
         assert result_df["approval_date"][3] == date(2024, 2, 28)
 
         # Verify parsed exclusivity dates (handling empty/whitespace strings vs valid ones)
-        assert result_df["exclusivity_end_date"][0] is None
-        assert result_df["exclusivity_end_date"][1] is None
-        assert result_df["exclusivity_end_date"][2] is None
-        assert result_df["exclusivity_end_date"][3] == date(2030, 12, 31)
+        assert result_df["exclusivity_expiration"][0] is None
+        assert result_df["exclusivity_expiration"][1] is None
+        assert result_df["exclusivity_expiration"][2] is None
+        assert result_df["exclusivity_expiration"][3] == date(2030, 12, 31)
 
         # Verify extra columns are cleanly ignored and not present in the output
         assert "extra_unexpected_column" not in result_df.columns
@@ -257,14 +288,17 @@ def test_process_silver_layer_missing_required_fields() -> None:
     # DB response missing required columns, simulating structural change in the source/bronze layer
     mock_df = pl.DataFrame(
         {
-            "source_bla_number": ["123"],
+            "bla_number": ["123"],
             "proprietary_name": ["A"],
-            # missing "proper_name" which maps to "ingredient"
+            # missing "proper_name"
             "applicant": ["A"],
             "license_type": ["A"],
             "approval_date": ["2023-01-01"],
             "exclusivity_expiration": [None],
             "marketing_status": ["Rx"],
+            "strength": [None],
+            "route_of_administration": [None],
+            "product_presentation": [None],
         }
     )
 
@@ -274,6 +308,6 @@ def test_process_silver_layer_missing_required_fields() -> None:
         from coreason_etl_purple_book.exceptions import DataIntegrityError
 
         with pytest.raises(
-            DataIntegrityError, match=r"(?s)Data validation failed\. Error:.*ingredient.*Field required"
+            DataIntegrityError, match=r"(?s)Data validation failed\. Error:.*proper_name.*Field required"
         ):
             process_silver_layer("postgresql://user:pass@localhost:5432/db")

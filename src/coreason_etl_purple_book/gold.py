@@ -25,13 +25,16 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
     # Schema definition for empty dataframes to prevent downstream crashes
     expected_schema: dict[str, pl.DataType | type[pl.DataType]] = {
         "bla_number": pl.String,
-        "trade_name": pl.String,
-        "ingredient": pl.String,
-        "applicant_short": pl.String,
+        "proprietary_name": pl.String,
+        "proper_name": pl.String,
+        "applicant": pl.String,
         "license_type": pl.String,
         "approval_date": pl.Date,
-        "exclusivity_end_date": pl.Date,
+        "exclusivity_expiration": pl.Date,
         "marketing_status": pl.String,
+        "strength": pl.String,
+        "route_of_administration": pl.String,
+        "product_presentation": pl.String,
         "source_id": pl.String,
         "coreason_id": pl.String,
         "is_biosimilar": pl.Boolean,
@@ -60,9 +63,9 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
 
     df = df.with_columns(
         is_biosimilar=(pl.col("license_type") == "351(k)"),
-        is_protected=(pl.lit(current_date) < pl.col("exclusivity_end_date")).fill_null(False),
+        is_protected=(pl.lit(current_date) < pl.col("exclusivity_expiration")).fill_null(False),
         vector_prep=pl.concat_str(
-            [pl.col("trade_name"), pl.col("ingredient"), pl.col("applicant_short")], separator=" "
+            [pl.col("proprietary_name"), pl.col("proper_name"), pl.col("applicant")], separator=" "
         ),
     )
 

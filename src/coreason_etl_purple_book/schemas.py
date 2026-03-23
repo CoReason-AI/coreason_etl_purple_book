@@ -26,17 +26,20 @@ class SilverFdaPurpleBookManifest(BaseModel):
         ...,
         description="BLA number. Sanitized, validated for length (max 6), and 6-digit left-padded.",
     )
-    trade_name: str = Field(..., description="Brand name (Proprietary Name)")
-    ingredient: str = Field(..., description="Biological/Core name (Active substance) (Proper Name)")
-    applicant_short: str = Field(..., description="Sponsor (Applicant)")
+    proprietary_name: str = Field(..., description="Brand name (Proprietary Name)")
+    proper_name: str = Field(..., description="Biological/Core name (Active substance) (Proper Name)")
+    applicant: str = Field(..., description="Sponsor (Applicant)")
     license_type: str = Field(..., description="e.g., 351(a) Reference, 351(k) Biosimilar")
 
     # UPDATED: Made approval_date optional to handle missing historical dates
     approval_date: date | None = Field(None, description="Parsed date format")
-    exclusivity_end_date: date | None = Field(None, description="Optional exclusivity expiration date")
+    exclusivity_expiration: date | None = Field(None, description="Optional exclusivity expiration date")
     marketing_status: str = Field(..., description="Rx, OTC, DISCN")
+    strength: str | None = Field(None, description="Strength")
+    route_of_administration: str | None = Field(None, description="Route of Administration")
+    product_presentation: str | None = Field(None, description="Product Presentation")
 
-    @field_validator("approval_date", "exclusivity_end_date", mode="before")
+    @field_validator("approval_date", "exclusivity_expiration", mode="before")
     @classmethod
     def parse_fda_dates(cls, v: str | date | datetime | None) -> date | None:
         """
