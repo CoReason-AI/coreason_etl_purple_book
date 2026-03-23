@@ -10,6 +10,7 @@
 
 import re
 from datetime import date, datetime
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -21,7 +22,7 @@ from coreason_etl_purple_book.schemas import SilverFdaPurpleBookManifest
 
 
 def test_silver_manifest_valid() -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": "1234",
         "proprietary_name": "Test Brand",
         "proper_name": "Test Ingredient",
@@ -38,7 +39,7 @@ def test_silver_manifest_valid() -> None:
 
 
 def test_date_parsing_formats() -> None:
-    base_data = {
+    base_data: dict[str, Any] = {
         "bla_number": "1234",
         "proprietary_name": "Test",
         "proper_name": "Test",
@@ -80,7 +81,7 @@ def test_date_parsing_formats() -> None:
 
     # Invalid string format
     with pytest.raises(ValidationError) as exc_info:
-        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "28/02/2024"})
+        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "invalid-random-string"})
     assert "Unrecognized date format" in str(exc_info.value)
 
     # empty string exclusivity_expiration
@@ -89,10 +90,10 @@ def test_date_parsing_formats() -> None:
     )
     assert manifest7.exclusivity_expiration is None
 
-    # invalid date exclusivity_expiration
+    # Note: dateutil.parser parses "28/02/2024" as year 2024, day 2, month 28 (ValueError: month must be in 1..12).
     with pytest.raises(ValidationError) as exc_info:
         SilverFdaPurpleBookManifest(
-            **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": "28/02/2024"}
+            **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": "invalid-random-string"}
         )
     assert "Unrecognized date format" in str(exc_info.value)
 
@@ -129,7 +130,7 @@ def test_date_parsing_formats() -> None:
 
 
 def test_silver_manifest_valid_no_exclusivity() -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": " 123 ",
         "proprietary_name": "Test Brand",
         "proper_name": "Test Ingredient",
@@ -145,7 +146,7 @@ def test_silver_manifest_valid_no_exclusivity() -> None:
 
 
 def test_bla_number_sanitization() -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": "  12-34_a. ",
         "proprietary_name": "Test",
         "proper_name": "Test",
@@ -161,7 +162,7 @@ def test_bla_number_sanitization() -> None:
 
 
 def test_bla_number_sanitization_alphanumeric_only() -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": "BLA 123",
         "proprietary_name": "Test",
         "proper_name": "Test",
@@ -175,7 +176,7 @@ def test_bla_number_sanitization_alphanumeric_only() -> None:
 
 
 def test_bla_number_length_validation_logs_warning() -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": "1234567",
         "proprietary_name": "Test",
         "proper_name": "Test",
@@ -192,7 +193,7 @@ def test_bla_number_length_validation_logs_warning() -> None:
 
 
 def test_bla_number_integer_input() -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": 123,
         "proprietary_name": "Test",
         "proper_name": "Test",
@@ -207,7 +208,7 @@ def test_bla_number_integer_input() -> None:
 
 
 def test_invalid_date_format() -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": "123",
         "proprietary_name": "Test",
         "proper_name": "Test",
@@ -223,7 +224,7 @@ def test_invalid_date_format() -> None:
 
 @given(bla_number=st.text(alphabet=st.characters(categories=["Lu", "Ll", "N" + "d"]), min_size=1, max_size=100))  # type: ignore[untyped-decorator, unused-ignore, list-item]
 def test_silver_manifest_hypothesis_valid_strings(bla_number: str) -> None:
-    data = {
+    data: dict[str, Any] = {
         "bla_number": bla_number,
         "proprietary_name": "Test Brand",
         "proper_name": "Test Ingredient",

@@ -19,6 +19,7 @@ dependencies = [
     "pyarrow>=23.0.1",
     "psycopg2-binary>=2.9.11",
     "adbc-driver-postgresql>=1.10.0",
+    "python-dateutil>=2.9.0",
 ]
 license = { file = "LICENSE" }
 classifiers = [
@@ -43,6 +44,7 @@ dev = [
     "mkdocstrings-python",
     "types-pyyaml>=6.0.12.20250915",
     "types-requests>=2.32.4.20260107",
+    "types-python-dateutil>=2.9.0",
     "tzdata>=2025.3",
     "pytest-xdist>=3.6.1",
     "pytest-mock>=3.15.1",

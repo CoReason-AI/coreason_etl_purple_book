@@ -44,7 +44,7 @@ class SilverFdaPurpleBookManifest(BaseModel):
     @classmethod
     def parse_fda_dates(cls, v: str | date | datetime | None) -> date | None:
         """
-        Parses FDA specific date formats into Python date objects.
+        Parses FDA specific date formats into Python date objects using dateutil.parser.
         Expected formats include ISO 8601 (YYYY-MM-DD), MM/DD/YYYY, Month DD, YYYY, and DD-Mon-YY.
         """
         if not v:
@@ -60,21 +60,12 @@ class SilverFdaPurpleBookManifest(BaseModel):
         if not v:
             return None
 
-        formats_to_try = [
-            "%Y-%m-%d",  # 2024-02-28
-            "%m/%d/%Y",  # 02/28/2024
-            "%B %d, %Y",  # February 28, 2024
-            "%b %d, %Y",  # Feb 28, 2024
-            "%d-%b-%y",  # 21-May-04 (New FDA Format)
-        ]
+        try:
+            from dateutil.parser import parse
 
-        for fmt in formats_to_try:
-            try:
-                return datetime.strptime(v, fmt).date()
-            except ValueError:
-                continue
-
-        raise ValueError(f"Unrecognized date format: '{v}'")
+            return parse(v).date()
+        except ValueError as e:
+            raise ValueError(f"Unrecognized date format: '{v}'") from e
 
     @field_validator("bla_number", mode="before")
     @classmethod
