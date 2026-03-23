@@ -11,6 +11,7 @@
 import re
 from datetime import date, datetime
 
+import polars as pl
 from pydantic import BaseModel, Field, StrictStr, field_validator
 
 from coreason_etl_purple_book.utils.logger import logger
@@ -92,3 +93,38 @@ class SilverFdaPurpleBookManifest(BaseModel):
 
         # Left-pad with zeros
         return sanitized.zfill(6)
+
+
+# Define the strict schemas to prevent PyArrow 'na' type inference errors on empty columns
+SILVER_BASE_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
+    "bla_number": pl.String,
+    "proprietary_name": pl.String,
+    "proper_name": pl.String,
+    "applicant": pl.String,
+    "license_type": pl.String,
+    "approval_date": pl.Date,
+    "exclusivity_expiration": pl.Date,
+    "marketing_status": pl.String,
+    "strength": pl.String,
+    "route_of_administration": pl.String,
+    "product_presentation": pl.String,
+}
+
+GOLD_EXPECTED_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
+    "bla_number": pl.String,
+    "proprietary_name": pl.String,
+    "proper_name": pl.String,
+    "applicant": pl.String,
+    "license_type": pl.String,
+    "approval_date": pl.Date,
+    "exclusivity_expiration": pl.Date,
+    "marketing_status": pl.String,
+    "strength": pl.String,
+    "route_of_administration": pl.String,
+    "product_presentation": pl.String,
+    "source_id": pl.String,
+    "coreason_id": pl.String,
+    "is_biosimilar": pl.Boolean,
+    "is_protected": pl.Boolean,
+    "vector_prep": pl.String,
+}

@@ -12,6 +12,7 @@ from datetime import datetime
 
 import polars as pl
 
+from coreason_etl_purple_book.schemas import GOLD_EXPECTED_SCHEMA
 from coreason_etl_purple_book.utils.logger import logger
 
 
@@ -22,29 +23,9 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
     """
     logger.info("Starting Gold layer processing.")
 
-    # Schema definition for empty dataframes to prevent downstream crashes
-    expected_schema: dict[str, pl.DataType | type[pl.DataType]] = {
-        "bla_number": pl.String,
-        "proprietary_name": pl.String,
-        "proper_name": pl.String,
-        "applicant": pl.String,
-        "license_type": pl.String,
-        "approval_date": pl.Date,
-        "exclusivity_expiration": pl.Date,
-        "marketing_status": pl.String,
-        "strength": pl.String,
-        "route_of_administration": pl.String,
-        "product_presentation": pl.String,
-        "source_id": pl.String,
-        "coreason_id": pl.String,
-        "is_biosimilar": pl.Boolean,
-        "is_protected": pl.Boolean,
-        "vector_prep": pl.String,
-    }
-
     if df.height == 0:
         logger.info("Empty Silver DataFrame provided. Returning empty Gold DataFrame with expected schema.")
-        return pl.DataFrame(schema=expected_schema)
+        return pl.DataFrame(schema=GOLD_EXPECTED_SCHEMA)
 
     # 1. Filter out discontinued products
     if is_active:
@@ -54,7 +35,7 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
 
         if df.height == 0:
             logger.info("No active products remained after filtering. Returning empty Gold DataFrame.")
-            return pl.DataFrame(schema=expected_schema)
+            return pl.DataFrame(schema=GOLD_EXPECTED_SCHEMA)
 
     # 2. Derive columns
     logger.info("Adding derived columns (is_biosimilar, is_protected, vector_prep).")
@@ -70,7 +51,7 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
     )
 
     # Select the columns matching the target schema to ensure consistent ordering
-    target_columns = list(expected_schema.keys())
+    target_columns = list(GOLD_EXPECTED_SCHEMA.keys())
     # The incoming df from silver might not have exactly all columns ordered perfectly.
     # Selecting the keys aligns them to the expected schema order.
     # But note that we might not have all columns if silver is missing them,

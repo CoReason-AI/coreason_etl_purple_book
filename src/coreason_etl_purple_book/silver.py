@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from coreason_etl_purple_book.exceptions import DataIntegrityError
 from coreason_etl_purple_book.identity import get_coreason_id_expr
-from coreason_etl_purple_book.schemas import SilverFdaPurpleBookManifest
+from coreason_etl_purple_book.schemas import SILVER_BASE_SCHEMA, SilverFdaPurpleBookManifest
 from coreason_etl_purple_book.utils.logger import logger
 
 # Just so it's not removed by ruff or flagged by deptry as unused:
@@ -65,29 +65,14 @@ def process_silver_layer(connection_uri: str) -> pl.DataFrame:
 
     logger.info(f"Validated {len(valid_rows)} rows successfully.")
 
-    # Define the strict schema to prevent PyArrow 'na' type inference errors on empty columns
-    base_schema: dict[str, pl.DataType | type[pl.DataType]] = {
-        "bla_number": pl.String,
-        "proprietary_name": pl.String,
-        "proper_name": pl.String,
-        "applicant": pl.String,
-        "license_type": pl.String,
-        "approval_date": pl.Date,
-        "exclusivity_expiration": pl.Date,
-        "marketing_status": pl.String,
-        "strength": pl.String,
-        "route_of_administration": pl.String,
-        "product_presentation": pl.String,
-    }
-
     if not valid_rows:
-        empty_schema = base_schema.copy()
+        empty_schema = SILVER_BASE_SCHEMA.copy()
         empty_schema["source_id"] = pl.String
         empty_schema["coreason_id"] = pl.String
         return pl.DataFrame(schema=empty_schema)
 
     # Force the schema during DataFrame creation
-    valid_df = pl.DataFrame(valid_rows, schema=base_schema)
+    valid_df = pl.DataFrame(valid_rows, schema=SILVER_BASE_SCHEMA)
 
     return valid_df.with_columns(source_id=pl.col("bla_number"), coreason_id=get_coreason_id_expr("bla_number"))
 
