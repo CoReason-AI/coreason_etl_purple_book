@@ -130,20 +130,10 @@ wheels = [
 ]
 
 [[package]]
-name = "connectorx"
-version = "0.4.5"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/dc/97/525b11d7e3c3a286d83dc138f4e4ef948307338527b442be8fa3b1b379d7/connectorx-0.4.5-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:cc01ca122f649e62707f49f7220ba1ae67961b260e2dcff9e8647ea9915a01cf", size = 43757296, upload-time = "2026-01-18T01:31:17.503Z" },
-    { url = "https://files.pythonhosted.org/packages/57/3a/5e1a7cb3b0175c249c232f487918494ec7e26c13f3d543a55c8c7752b993/connectorx-0.4.5-cp314-none-win_amd64.whl", hash = "sha256:2073970532a8e6e2a8a2c0b163497eb8e58216e28fdab6693fcd7e58bfc47bfc", size = 34641445, upload-time = "2026-01-18T01:59:44.351Z" },
-]
-
-[[package]]
 name = "coreason-etl-purple-book"
 source = { editable = "." }
 dependencies = [
     { name = "adbc-driver-postgresql" },
-    { name = "connectorx", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or sys_platform == 'win32'" },
     { name = "dlt" },
     { name = "loguru" },
     { name = "polars" },
@@ -179,7 +169,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "adbc-driver-postgresql", specifier = ">=1.10.0" },
-    { name = "connectorx", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or sys_platform == 'win32'", specifier = ">=0.4.5" },
     { name = "dlt", specifier = ">=1.0.0" },
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "polars", specifier = ">=1.39.0" },
