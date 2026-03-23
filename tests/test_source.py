@@ -16,11 +16,16 @@ import pytest
 import requests
 from dlt.extract.exceptions import ResourceExtractionError
 
-from coreason_etl_purple_book.source import FdaPurpleBookSource, fda_purple_book_resource, fda_purple_book_source
+from coreason_etl_purple_book.exceptions import SourceSchemaError
+from coreason_etl_purple_book.source import (
+    download_and_hash_csv,
+    fda_purple_book_resource,
+    fda_purple_book_source,
+    get_latest_csv_url,
+)
 
 
 def test_download_and_hash_csv_success() -> None:
-    source = FdaPurpleBookSource()
     test_url = "http://fake.url/data.csv"
     test_data = b"col1,col2\nval1,val2\n"
 
@@ -32,7 +37,7 @@ def test_download_and_hash_csv_success() -> None:
     mock_response.iter_content.return_value = [test_data[:5], test_data[5:]]
 
     with patch("dlt.sources.helpers.requests.get", return_value=mock_response) as mock_get:
-        file_path, md5_digest = source.download_and_hash_csv(test_url)
+        file_path, md5_digest = download_and_hash_csv(test_url)
 
     mock_get.assert_called_once_with(
         test_url, stream=True, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -49,30 +54,33 @@ def test_download_and_hash_csv_success() -> None:
 
 
 def test_download_and_hash_csv_failure() -> None:
-    source = FdaPurpleBookSource()
     test_url = "http://fake.url/data.csv"
 
     with (
         patch("dlt.sources.helpers.requests.get", side_effect=requests.exceptions.RequestException("Failed to fetch")),
         pytest.raises(requests.exceptions.RequestException),
     ):
-        source.download_and_hash_csv(test_url)
+        download_and_hash_csv(test_url)
 
     # In case of failure, no temporary file should be leaked
-    # However, since mkstemp runs before the exception, we mock it to verify the exception doesn't leak it.
-    mock_fd = MagicMock()
-    mock_path = "some_fake_path.csv"
+    # We mock NamedTemporaryFile to verify the exception doesn't leak it.
+    mock_file = MagicMock()
+    mock_file.name = "some_fake_path.csv"
+
+    # Create a proper context manager mock for NamedTemporaryFile
+    mock_ntf_ctx = MagicMock()
+    mock_ntf_ctx.__enter__.return_value = mock_file
+
     with (
-        patch("tempfile.mkstemp", return_value=(mock_fd, mock_path)),
-        patch("os.fdopen", MagicMock()),
+        patch("tempfile.NamedTemporaryFile", return_value=mock_ntf_ctx),
         patch("dlt.sources.helpers.requests.get", side_effect=requests.exceptions.RequestException("Failed")),
         patch("os.path.exists", return_value=True),
         patch("os.remove") as mock_remove,
         pytest.raises(requests.exceptions.RequestException),
     ):
-        source.download_and_hash_csv(test_url)
+        download_and_hash_csv(test_url)
 
-    mock_remove.assert_called_once_with(mock_path)
+    mock_remove.assert_called_once_with("some_fake_path.csv")
 
 
 def test_fda_purple_book_resource() -> None:
@@ -206,3 +214,136 @@ def test_fda_purple_book_resource_empty_file() -> None:
         resource = fda_purple_book_resource(url=test_url)
         with pytest.raises(ResourceExtractionError, match="CSV file is empty or missing a header row"):
             list(resource)
+
+
+def test_get_latest_csv_url_success() -> None:
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"Content-Type": "text/csv"}
+
+    with (
+        patch("dlt.sources.helpers.requests.get", return_value=mock_response),
+        patch("coreason_etl_purple_book.source.datetime") as mock_dt,
+    ):
+        from datetime import datetime
+
+        mock_dt.now.return_value = datetime(2024, 2, 1)
+
+        url = get_latest_csv_url()
+        assert url.startswith(
+            "https://purplebooksearch.fda.gov/files/2024/purplebook-search-february-data-download.csv"
+        )
+
+
+def test_get_latest_csv_url_html_response() -> None:
+    mock_response_html = MagicMock()
+    mock_response_html.status_code = 200
+    mock_response_html.headers = {"Content-Type": "text/html"}
+
+    with (
+        patch("dlt.sources.helpers.requests.get", return_value=mock_response_html),
+        patch("coreason_etl_purple_book.source.datetime") as mock_dt,
+    ):
+        from datetime import datetime
+
+        mock_dt.now.return_value = datetime(2024, 2, 1)
+
+        with pytest.raises(
+            SourceSchemaError, match=r"Could not resolve the FDA Purple Book CSV URL via predictive routing."
+        ):
+            get_latest_csv_url()
+
+
+def test_get_latest_csv_url_request_exception() -> None:
+    with (
+        patch("dlt.sources.helpers.requests.get", side_effect=Exception("Network error")),
+        patch("coreason_etl_purple_book.source.datetime") as mock_dt,
+    ):
+        from datetime import datetime
+
+        mock_dt.now.return_value = datetime(2024, 2, 1)
+
+        with pytest.raises(
+            SourceSchemaError, match=r"Could not resolve the FDA Purple Book CSV URL via predictive routing."
+        ):
+            get_latest_csv_url()
+
+
+def test_download_and_hash_csv_spa_route() -> None:
+    test_url = "https://purplebooksearch.fda.gov/downloads/data-download"
+    test_data = b"col1,col2\nval1,val2\n"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with (
+        patch(
+            "coreason_etl_purple_book.source.get_latest_csv_url",
+            return_value="https://purplebooksearch.fda.gov/files/2024/data.csv",
+        ) as mock_get_latest,
+        patch("dlt.sources.helpers.requests.get", return_value=mock_response) as mock_get,
+    ):
+        _file_path, _md5_digest = download_and_hash_csv(test_url)
+
+    mock_get_latest.assert_called_once()
+    assert mock_get.call_args[0][0] == "https://purplebooksearch.fda.gov/files/2024/data.csv"
+
+
+def test_fda_purple_book_resource_empty_headers_exception() -> None:
+    test_url = "http://fake.url/data.csv"
+    test_data = b"BLA Number,Proprietary Name,Proper Name,Applicant,License Type,Approval Date,Exclusivity Expiration\n"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response), patch("csv.DictReader") as mock_reader:
+        mock_reader_instance = MagicMock()
+        mock_reader_instance.fieldnames = []
+        mock_reader.return_value = mock_reader_instance
+
+        resource = fda_purple_book_resource(url=test_url)
+        with pytest.raises(ResourceExtractionError, match="CSV file is empty or missing a header row"):
+            list(resource)
+
+
+def test_fda_purple_book_resource_yield_row() -> None:
+    test_url = "http://fake.url/data.csv"
+    test_data = b"BLA Number,Proprietary Name,Proper Name,Applicant,License Type,Approval Date,Exclusivity Expiration,Marketing Status\n1234,BrandA,IngredA,AppA,351a,2024-01-01,,Rx\n"  # noqa: E501
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.raise_for_status.return_value = None
+    mock_response.iter_content.return_value = [test_data]
+
+    with patch("dlt.sources.helpers.requests.get", return_value=mock_response):
+        resource = fda_purple_book_resource(url=test_url)
+        rows = list(resource)
+        assert len(rows) == 1
+        assert rows[0]["raw_content"]["BLA Number"] == "1234"
+        assert rows[0]["source_file"] == "data.csv"
+
+
+def test_download_and_hash_csv_os_error() -> None:
+    test_url = "http://fake.url/data.csv"
+
+    mock_file = MagicMock()
+    mock_file.name = "some_fake_path.csv"
+
+    # We must patch NamedTemporaryFile instead of os.fdopen for our new implementation
+    mock_ntf_ctx = MagicMock()
+    # But to test an exception after file is created but before cleanup, we can simulate an OSError on requests.get
+    mock_ntf_ctx.__enter__.return_value = mock_file
+
+    with (
+        patch("tempfile.NamedTemporaryFile", return_value=mock_ntf_ctx),
+        patch("dlt.sources.helpers.requests.get", side_effect=OSError("Disk full")),
+        patch("os.path.exists", return_value=True),
+        patch("os.remove") as mock_remove,
+    ):
+        with pytest.raises(OSError, match="Disk full"):
+            download_and_hash_csv(test_url)
+        mock_remove.assert_called_once_with("some_fake_path.csv")
