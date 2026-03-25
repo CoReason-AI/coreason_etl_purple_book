@@ -13,7 +13,7 @@ import hashlib
 import os
 import tempfile
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import dlt
