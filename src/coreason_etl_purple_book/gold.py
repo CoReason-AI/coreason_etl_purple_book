@@ -8,40 +8,22 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_etl_purple_book
 
-from datetime import datetime
-
 import polars as pl
 
+from coreason_etl_purple_book.schemas import GOLD_EXPECTED_SCHEMA
 from coreason_etl_purple_book.utils.logger import logger
 
 
 def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame:
     """
     AGENT INSTRUCTION: Processes the Silver layer DataFrame into the Gold layer schema.
-    Applies filtering, derives boolean flags, and concatenates fields for vector embeddings.
+    Applies filtering, derives boolean flags.
     """
     logger.info("Starting Gold layer processing.")
 
-    # Schema definition for empty dataframes to prevent downstream crashes
-    expected_schema: dict[str, pl.DataType | type[pl.DataType]] = {
-        "bla_number": pl.String,
-        "trade_name": pl.String,
-        "ingredient": pl.String,
-        "applicant_short": pl.String,
-        "license_type": pl.String,
-        "approval_date": pl.Date,
-        "exclusivity_end_date": pl.Date,
-        "marketing_status": pl.String,
-        "source_id": pl.String,
-        "coreason_id": pl.String,
-        "is_biosimilar": pl.Boolean,
-        "is_protected": pl.Boolean,
-        "vector_prep": pl.String,
-    }
-
     if df.height == 0:
         logger.info("Empty Silver DataFrame provided. Returning empty Gold DataFrame with expected schema.")
-        return pl.DataFrame(schema=expected_schema)
+        return pl.DataFrame(schema=GOLD_EXPECTED_SCHEMA)
 
     # 1. Filter out discontinued products
     if is_active:
@@ -51,27 +33,20 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
 
         if df.height == 0:
             logger.info("No active products remained after filtering. Returning empty Gold DataFrame.")
-            return pl.DataFrame(schema=expected_schema)
+            return pl.DataFrame(schema=GOLD_EXPECTED_SCHEMA)
 
     # 2. Derive columns
-    logger.info("Adding derived columns (is_biosimilar, is_protected, vector_prep).")
-    # Pydantic validates as date, use timezone-naive date here to avoid ComputeError
-    current_date = datetime.now().date()
+    logger.info("Adding derived columns (is_biosimilar, bla_type).")
 
     df = df.with_columns(
-        is_biosimilar=(pl.col("license_type") == "351(k)"),
-        is_protected=(pl.lit(current_date) < pl.col("exclusivity_end_date")).fill_null(False),
-        vector_prep=pl.concat_str(
-            [pl.col("trade_name"), pl.col("ingredient"), pl.col("applicant_short")], separator=" "
-        ),
+        is_biosimilar=(pl.col("licensure") == "351(k)"),
+        bla_type=pl.when(pl.col("licensure") == "351(a)").then(pl.lit("Reference"))
+                   .when(pl.col("licensure") == "351(k)").then(pl.lit("Biosimilar"))
+                   .otherwise(pl.lit("Unknown"))
     )
 
     # Select the columns matching the target schema to ensure consistent ordering
-    target_columns = list(expected_schema.keys())
-    # The incoming df from silver might not have exactly all columns ordered perfectly.
-    # Selecting the keys aligns them to the expected schema order.
-    # But note that we might not have all columns if silver is missing them,
-    # though the schema mapping in Silver handles that.
+    target_columns = list(GOLD_EXPECTED_SCHEMA.keys())
 
     logger.info(f"Gold layer processing complete. Returning {df.height} rows.")
     return df.select(target_columns)

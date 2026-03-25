@@ -11,6 +11,7 @@
 import re
 from datetime import date, datetime
 
+import polars as pl
 from pydantic import BaseModel, Field, StrictStr, field_validator
 
 from coreason_etl_purple_book.utils.logger import logger
@@ -26,20 +27,31 @@ class SilverFdaPurpleBookManifest(BaseModel):
         ...,
         description="BLA number. Sanitized, validated for length (max 6), and 6-digit left-padded.",
     )
-    trade_name: str = Field(..., description="Brand name (Proprietary Name)")
-    ingredient: str = Field(..., description="Biological/Core name (Active substance) (Proper Name)")
-    applicant_short: str = Field(..., description="Sponsor (Applicant)")
-    license_type: str = Field(..., description="e.g., 351(a) Reference, 351(k) Biosimilar")
-    approval_date: date = Field(..., description="Parsed date format")
-    exclusivity_end_date: date | None = Field(None, description="Optional exclusivity expiration date")
-    marketing_status: str = Field(..., description="Rx, OTC, DISCN")
+    proprietary_name: str = Field(..., description="Brand name (Proprietary Name)")
+    proper_name: str = Field(..., description="Biological/Core name (Active substance) (Proper Name)")
+    applicant: str = Field(..., description="Sponsor (Applicant)")
+    licensure: str = Field(..., description="e.g., 351(a) Reference, 351(k) Biosimilar")
 
-    @field_validator("approval_date", "exclusivity_end_date", mode="before")
+    approval_date: date | None = Field(None, description="Parsed date format")
+    orphan_exclusivity_date: date | None = Field(None, description="Optional orphan exclusivity date")
+    marketing_status: str = Field(..., description="Rx, OTC, DISCN")
+    strength: str | None = Field(None, description="Strength")
+    route_of_administration: str | None = Field(None, description="Route of Administration")
+    product_presentation: str | None = Field(None, description="Product Presentation")
+
+    @field_validator("proprietary_name", mode="before")
+    @classmethod
+    def default_missing_proprietary_name(cls, v: str | None) -> str:
+        if not v or not str(v).strip():
+            return "N/A"
+        return str(v).strip()
+
+    @field_validator("approval_date", "orphan_exclusivity_date", mode="before")
     @classmethod
     def parse_fda_dates(cls, v: str | date | datetime | None) -> date | None:
         """
-        Parses FDA specific date formats into Python date objects.
-        Expected formats include ISO 8601 (YYYY-MM-DD), MM/DD/YYYY, and Month DD, YYYY.
+        Parses FDA specific date formats into Python date objects using dateutil.parser.
+        Expected formats include ISO 8601 (YYYY-MM-DD), MM/DD/YYYY, Month DD, YYYY, and DD-Mon-YY.
         """
         if not v:
             return None
@@ -54,20 +66,12 @@ class SilverFdaPurpleBookManifest(BaseModel):
         if not v:
             return None
 
-        formats_to_try = [
-            "%Y-%m-%d",  # 2024-02-28
-            "%m/%d/%Y",  # 02/28/2024
-            "%B %d, %Y",  # February 28, 2024
-            "%b %d, %Y",  # Feb 28, 2024
-        ]
+        try:
+            from dateutil.parser import parse
 
-        for fmt in formats_to_try:
-            try:
-                return datetime.strptime(v, fmt).date()
-            except ValueError:
-                continue
-
-        raise ValueError(f"Unrecognized date format: '{v}'")
+            return parse(v).date()
+        except ValueError as e:
+            raise ValueError(f"Unrecognized date format: '{v}'") from e
 
     @field_validator("bla_number", mode="before")
     @classmethod
@@ -75,8 +79,6 @@ class SilverFdaPurpleBookManifest(BaseModel):
         """
         Strips whitespace and non-alphanumeric chars. Validates length <= 6. Left-pads with zeros to 6 digits.
         """
-        # Type validation is implicitly handled by StrictStr, but if we're in 'before' validator,
-        # we need to be careful. StrictStr actually validates during parsing. Let's do a strict check here.
         if not isinstance(v, str):
             raise ValueError(f"BLA Number must be a string, got {type(v).__name__}")
 
@@ -88,3 +90,37 @@ class SilverFdaPurpleBookManifest(BaseModel):
 
         # Left-pad with zeros
         return sanitized.zfill(6)
+
+
+# Define the strict schemas to prevent PyArrow 'na' type inference errors on empty columns
+SILVER_BASE_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
+    "bla_number": pl.String,
+    "proprietary_name": pl.String,
+    "proper_name": pl.String,
+    "applicant": pl.String,
+    "licensure": pl.String,
+    "approval_date": pl.Date,
+    "orphan_exclusivity_date": pl.Date,
+    "marketing_status": pl.String,
+    "strength": pl.String,
+    "route_of_administration": pl.String,
+    "product_presentation": pl.String,
+}
+
+GOLD_EXPECTED_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
+    "bla_number": pl.String,
+    "proprietary_name": pl.String,
+    "proper_name": pl.String,
+    "applicant": pl.String,
+    "licensure": pl.String,
+    "approval_date": pl.Date,
+    "orphan_exclusivity_date": pl.Date,
+    "marketing_status": pl.String,
+    "strength": pl.String,
+    "route_of_administration": pl.String,
+    "product_presentation": pl.String,
+    "source_id": pl.String,
+    "coreason_id": pl.String,
+    "is_biosimilar": pl.Boolean,
+    "bla_type": pl.String,
+}
