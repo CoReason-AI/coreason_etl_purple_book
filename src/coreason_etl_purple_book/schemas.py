@@ -121,6 +121,5 @@ GOLD_EXPECTED_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "product_presentation": pl.String,
     "source_id": pl.String,
     "coreason_id": pl.String,
-    "is_biosimilar": pl.Boolean,
-    "bla_type": pl.String,
-}
+    "bla_type": pl.String, 
+} 

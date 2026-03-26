@@ -27,15 +27,15 @@ def test_silver_manifest_valid() -> None:
         "proprietary_name": "Test Brand",
         "proper_name": "Test Ingredient",
         "applicant": "Test Sponsor",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "approval_date": "2023-01-01",
-        "exclusivity_expiration": "2030-01-01",
+        "orphan_exclusivity_date": "2030-01-01",
         "marketing_status": "Rx",
     }
     manifest = SilverFdaPurpleBookManifest(**data)
     assert manifest.bla_number == "001234"
     assert manifest.approval_date == date(2023, 1, 1)
-    assert manifest.exclusivity_expiration == date(2030, 1, 1)
+    assert manifest.orphan_exclusivity_date == date(2030, 1, 1)
 
 
 def test_date_parsing_formats() -> None:
@@ -44,7 +44,7 @@ def test_date_parsing_formats() -> None:
         "proprietary_name": "Test",
         "proper_name": "Test",
         "applicant": "Test",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "marketing_status": "Rx",
     }
 
@@ -70,9 +70,9 @@ def test_date_parsing_formats() -> None:
 
     # Empty string tests
     manifest6 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": "   "}
+        **{**base_data, "approval_date": "2024-02-28", "orphan_exclusivity_date": "   "}
     )
-    assert manifest6.exclusivity_expiration is None
+    assert manifest6.orphan_exclusivity_date is None
 
     # Integer instead of string/date/datetime
     with pytest.raises(ValidationError) as exc_info:
@@ -84,41 +84,41 @@ def test_date_parsing_formats() -> None:
         SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "invalid-random-string"})
     assert "Unrecognized date format" in str(exc_info.value)
 
-    # empty string exclusivity_expiration
+    # empty string orphan_exclusivity_date
     manifest7 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": ""}
+        **{**base_data, "approval_date": "2024-02-28", "orphan_exclusivity_date": ""}
     )
-    assert manifest7.exclusivity_expiration is None
+    assert manifest7.orphan_exclusivity_date is None
 
     # Note: dateutil.parser parses "28/02/2024" as year 2024, day 2, month 28 (ValueError: month must be in 1..12).
     with pytest.raises(ValidationError) as exc_info:
         SilverFdaPurpleBookManifest(
-            **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": "invalid-random-string"}
+            **{**base_data, "approval_date": "2024-02-28", "orphan_exclusivity_date": "invalid-random-string"}
         )
     assert "Unrecognized date format" in str(exc_info.value)
 
-    # integer exclusivity_expiration
+    # integer orphan_exclusivity_date
     with pytest.raises(ValidationError) as exc_info:
-        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": 20240228})
+        SilverFdaPurpleBookManifest(**{**base_data, "approval_date": "2024-02-28", "orphan_exclusivity_date": 20240228})
     assert "Expected a string, date, or datetime" in str(exc_info.value)
 
-    # valid datetime object exclusivity_expiration
+    # valid datetime object orphan_exclusivity_date
     manifest8 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": datetime(2024, 2, 28)}
+        **{**base_data, "approval_date": "2024-02-28", "orphan_exclusivity_date": datetime(2024, 2, 28)}
     )
-    assert manifest8.exclusivity_expiration == date(2024, 2, 28)
+    assert manifest8.orphan_exclusivity_date == date(2024, 2, 28)
 
-    # valid date object exclusivity_expiration
+    # valid date object orphan_exclusivity_date
     manifest10 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": date(2024, 2, 28)}
+        **{**base_data, "approval_date": "2024-02-28", "orphan_exclusivity_date": date(2024, 2, 28)}
     )
-    assert manifest10.exclusivity_expiration == date(2024, 2, 28)
+    assert manifest10.orphan_exclusivity_date == date(2024, 2, 28)
 
-    # None exclusivity_expiration
+    # None orphan_exclusivity_date
     manifest9 = SilverFdaPurpleBookManifest(
-        **{**base_data, "approval_date": "2024-02-28", "exclusivity_expiration": None}
+        **{**base_data, "approval_date": "2024-02-28", "orphan_exclusivity_date": None}
     )
-    assert manifest9.exclusivity_expiration is None
+    assert manifest9.orphan_exclusivity_date is None
 
     # None approval_date
     manifest_none_approval = SilverFdaPurpleBookManifest(**{**base_data, "approval_date": None})
@@ -135,14 +135,14 @@ def test_silver_manifest_valid_no_exclusivity() -> None:
         "proprietary_name": "Test Brand",
         "proper_name": "Test Ingredient",
         "applicant": "Test Sponsor",
-        "license_type": "351(k)",
+        "licensure": "351(k)",
         "approval_date": "2023-01-01",
-        "exclusivity_expiration": None,
+        "orphan_exclusivity_date": None,
         "marketing_status": "OTC",
     }
     manifest = SilverFdaPurpleBookManifest(**data)
     assert manifest.bla_number == "000123"
-    assert manifest.exclusivity_expiration is None
+    assert manifest.orphan_exclusivity_date is None
 
 
 def test_bla_number_sanitization() -> None:
@@ -151,7 +151,7 @@ def test_bla_number_sanitization() -> None:
         "proprietary_name": "Test",
         "proper_name": "Test",
         "applicant": "Test",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
     }
@@ -167,7 +167,7 @@ def test_bla_number_sanitization_alphanumeric_only() -> None:
         "proprietary_name": "Test",
         "proper_name": "Test",
         "applicant": "Test",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
     }
@@ -181,7 +181,7 @@ def test_bla_number_length_validation_logs_warning() -> None:
         "proprietary_name": "Test",
         "proper_name": "Test",
         "applicant": "Test",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
     }
@@ -198,7 +198,7 @@ def test_bla_number_integer_input() -> None:
         "proprietary_name": "Test",
         "proper_name": "Test",
         "applicant": "Test",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
     }
@@ -213,7 +213,7 @@ def test_invalid_date_format() -> None:
         "proprietary_name": "Test",
         "proper_name": "Test",
         "applicant": "Test",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "approval_date": "not-a-date",
         "marketing_status": "Rx",
     }
@@ -229,7 +229,7 @@ def test_silver_manifest_hypothesis_valid_strings(bla_number: str) -> None:
         "proprietary_name": "Test Brand",
         "proper_name": "Test Ingredient",
         "applicant": "Test Sponsor",
-        "license_type": "351(a)",
+        "licensure": "351(a)",
         "approval_date": "2023-01-01",
         "marketing_status": "Rx",
     }

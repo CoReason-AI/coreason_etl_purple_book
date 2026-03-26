@@ -36,12 +36,15 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
             return pl.DataFrame(schema=GOLD_EXPECTED_SCHEMA)
 
     # 2. Derive columns
-    logger.info("Adding derived columns (is_biosimilar, bla_type).")
+    logger.info("Adding derived columns (bla_type) and correcting licensure.")
 
     df = df.with_columns(
-        is_biosimilar=(pl.col("licensure") == "351(k)"),
-        bla_type=pl.when(pl.col("licensure") == "351(a)").then(pl.lit("Reference"))
-                   .when(pl.col("licensure") == "351(k)").then(pl.lit("Biosimilar"))
+        # First, correctly assign "351(a)" / "351(k)" to bla_type
+        bla_type=pl.col("licensure")
+    ).with_columns(
+        # Next, overwrite the licensure column with the actual licensure status
+        licensure=pl.when(pl.col("bla_type") == "351(a)").then(pl.lit("Reference"))
+                   .when(pl.col("bla_type") == "351(k)").then(pl.lit("Biosimilar"))
                    .otherwise(pl.lit("Unknown"))
     )
 
@@ -50,7 +53,6 @@ def process_gold_layer(df: pl.DataFrame, is_active: bool = True) -> pl.DataFrame
 
     logger.info(f"Gold layer processing complete. Returning {df.height} rows.")
     return df.select(target_columns)
-
 
 def load_gold_layer(df: pl.DataFrame, connection_uri: str) -> None:
     """

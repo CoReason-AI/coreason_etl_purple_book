@@ -24,9 +24,9 @@ def test_process_silver_layer_valid() -> None:
             "proprietary_name": ["Brand A", "Brand B"],
             "proper_name": ["Ingredient A", "Ingredient B"],
             "applicant": ["Sponsor A", "Sponsor B"],
-            "license_type": ["351(a)", "351(k)"],
+            "licensure": ["351(a)", "351(k)"],
             "approval_date": ["2023-01-01", "2024-05-15"],
-            "exclusivity_expiration": ["2030-01-01", None],
+            "orphan_exclusivity_date": ["2030-01-01", None],
             "marketing_status": ["Rx", "OTC"],
             "strength": ["10mg", None],
             "route_of_administration": ["Oral", "IV"],
@@ -48,7 +48,7 @@ def test_process_silver_layer_valid() -> None:
         assert "bla_number" in result_df.columns
         assert "source_id" in result_df.columns
         assert "coreason_id" in result_df.columns
-        assert "exclusivity_expiration" in result_df.columns
+        assert "orphan_exclusivity_date" in result_df.columns
 
         # Verify ID sanitization and generation
         assert result_df["bla_number"][0] == "000123"
@@ -64,8 +64,8 @@ def test_process_silver_layer_valid() -> None:
 
         assert result_df["approval_date"][0] == date(2023, 1, 1)
         assert result_df["approval_date"][1] == date(2024, 5, 15)
-        assert result_df["exclusivity_expiration"][0] == date(2030, 1, 1)
-        assert result_df["exclusivity_expiration"][1] is None
+        assert result_df["orphan_exclusivity_date"][0] == date(2030, 1, 1)
+        assert result_df["orphan_exclusivity_date"][1] is None
 
 
 def test_process_silver_layer_mixed_valid_and_invalid() -> None:
@@ -75,9 +75,9 @@ def test_process_silver_layer_mixed_valid_and_invalid() -> None:
             "proprietary_name": ["Brand A", "Brand B"],
             "proper_name": ["Ingredient A", "Ingredient B"],
             "applicant": ["Sponsor A", "Sponsor B"],
-            "license_type": ["351(a)", "351(k)"],
+            "licensure": ["351(a)", "351(k)"],
             "approval_date": ["2023-01-01", "2024-05-15"],
-            "exclusivity_expiration": [None, None],
+            "orphan_exclusivity_date": [None, None],
             "marketing_status": ["Rx", "OTC"],
             "strength": ["10mg", None],
             "route_of_administration": ["Oral", "IV"],
@@ -102,9 +102,9 @@ def test_process_silver_layer_data_integrity_error_propagation() -> None:
             "proprietary_name": ["Brand A"],
             "proper_name": ["Ingredient A"],
             "applicant": ["Sponsor A"],
-            "license_type": ["351(a)"],
+            "licensure": ["351(a)"],
             "approval_date": ["2023-01-01"],
-            "exclusivity_expiration": [None],
+            "orphan_exclusivity_date": [None],
             "marketing_status": ["Rx"],
             "strength": [None],
             "route_of_administration": [None],
@@ -133,9 +133,9 @@ def test_process_silver_layer_empty() -> None:
             "proprietary_name": [],
             "proper_name": [],
             "applicant": [],
-            "license_type": [],
+            "licensure": [],
             "approval_date": [],
-            "exclusivity_expiration": [],
+            "orphan_exclusivity_date": [],
             "marketing_status": [],
             "strength": [],
             "route_of_administration": [],
@@ -146,9 +146,9 @@ def test_process_silver_layer_empty() -> None:
             "proprietary_name": pl.String,
             "proper_name": pl.String,
             "applicant": pl.String,
-            "license_type": pl.String,
+            "licensure": pl.String,
             "approval_date": pl.String,
-            "exclusivity_expiration": pl.String,
+            "orphan_exclusivity_date": pl.String,
             "marketing_status": pl.String,
             "strength": pl.String,
             "route_of_administration": pl.String,
@@ -170,7 +170,7 @@ def test_load_silver_layer_valid() -> None:
             "proprietary_name": ["Brand A"],
             "proper_name": ["Ingredient A"],
             "applicant": ["Sponsor A"],
-            "license_type": ["351(a)"],
+            "licensure": ["351(a)"],
             "marketing_status": ["Rx"],
             "source_id": ["000123"],
             "coreason_id": ["uuid1"],
@@ -211,9 +211,9 @@ def test_process_silver_layer_all_invalid() -> None:
             "proprietary_name": ["A", "B"],
             "proper_name": ["A", "B"],
             "applicant": ["A", "B"],
-            "license_type": ["A", "B"],
+            "licensure": ["A", "B"],
             "approval_date": ["invalid_date", "invalid_date"],
-            "exclusivity_expiration": [None, None],
+            "orphan_exclusivity_date": [None, None],
             "marketing_status": ["Rx", "OTC"],
             "strength": [None, None],
             "route_of_administration": [None, None],
@@ -241,14 +241,14 @@ def test_process_silver_layer_complex_dates_and_edge_cases() -> None:
             "proprietary_name": ["A", "B", "C", "D"],
             "proper_name": ["A", "B", "C", "D"],
             "applicant": ["A", "B", "C", "D"],
-            "license_type": ["A", "B", "C", "D"],
+            "licensure": ["A", "B", "C", "D"],
             "approval_date": [
                 "2023-01-01",  # ISO 8601
                 "02/28/2024",  # MM/DD/YYYY
                 "February 28, 2024",  # Month DD, YYYY
                 "Feb 28, 2024",  # Mon DD, YYYY
             ],
-            "exclusivity_expiration": [
+            "orphan_exclusivity_date": [
                 "",  # Empty string (should parse to None)
                 " ",  # Whitespace string (should parse to None)
                 None,  # Explicit None
@@ -275,10 +275,10 @@ def test_process_silver_layer_complex_dates_and_edge_cases() -> None:
         assert result_df["approval_date"][3] == date(2024, 2, 28)
 
         # Verify parsed exclusivity dates (handling empty/whitespace strings vs valid ones)
-        assert result_df["exclusivity_expiration"][0] is None
-        assert result_df["exclusivity_expiration"][1] is None
-        assert result_df["exclusivity_expiration"][2] is None
-        assert result_df["exclusivity_expiration"][3] == date(2030, 12, 31)
+        assert result_df["orphan_exclusivity_date"][0] is None
+        assert result_df["orphan_exclusivity_date"][1] is None
+        assert result_df["orphan_exclusivity_date"][2] is None
+        assert result_df["orphan_exclusivity_date"][3] == date(2030, 12, 31)
 
         # Verify extra columns are cleanly ignored and not present in the output
         assert "extra_unexpected_column" not in result_df.columns
@@ -292,9 +292,9 @@ def test_process_silver_layer_missing_required_fields() -> None:
             "proprietary_name": ["A"],
             # missing "proper_name"
             "applicant": ["A"],
-            "license_type": ["A"],
+            "licensure": ["A"],
             "approval_date": ["2023-01-01"],
-            "exclusivity_expiration": [None],
+            "orphan_exclusivity_date": [None],
             "marketing_status": ["Rx"],
             "strength": [None],
             "route_of_administration": [None],
